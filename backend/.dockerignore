@@ -1,0 +1,7 @@
+node_modules
+dist
+.env
+wallet
+logs
+demo-output
+config/users.json

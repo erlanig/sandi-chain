@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+
+# rahasia & data runtime
+.env
+backend/wallet/
+backend/config/users.json
+backend/logs/
+backend/demo-output/
+
+# diunduh oleh scripts/network-up.sh
+fabric-samples/
+install-fabric.sh
+
+# chaincode vendor (dibuat saat deployCC)
+chaincode/**/vendor/

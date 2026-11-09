@@ -1,0 +1,83 @@
+# SANDI-Chain — infrastruktur off-chain (+ aplikasi, opsional).
+# Jaringan Fabric dijalankan terpisah lewat scripts/network-up.sh.
+#
+#   docker compose up -d                          -> PostgreSQL, object storage S3, Vault
+#   docker compose --profile app up -d --build    -> + backend & frontend dalam container
+name: sandi-chain
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sandi
+      POSTGRES_PASSWORD: sandi123
+      POSTGRES_DB: sandichain
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sandi -d sandichain"]
+      interval: 5s
+      retries: 10
+
+  # Object storage S3-compatible untuk file terenkripsi.
+  # Bisa diganti MinIO / Ceph RGW / S3 on-prem lain tanpa ubah kode (atur S3_* di backend/.env).
+  s3:
+    image: chrislusf/seaweedfs:latest
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256
+    ports: ["8333:8333"]
+    volumes:
+      - s3data:/data
+      - ./infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+
+  # DEV MODE: in-memory, unsealed, token "root". Produksi: Vault HA + auto-unseal (HSM).
+  # Catatan: dev mode tidak persisten. Restart Vault = kunci hilang = dokumen lama tidak bisa dibuka.
+  vault:
+    image: hashicorp/vault:1.17
+    cap_add: [IPC_LOCK]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports: ["8200:8200"]
+
+  # ---------------------------------------------------------------- aplikasi
+  # Prasyarat: scripts/network-up.sh dan `cd backend && npm run enroll` sudah dijalankan.
+  backend:
+    profiles: [app]
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      FABRIC_TEST_NETWORK: /fabric/test-network
+      PEER_ORG1_ENDPOINT: peer0.org1.example.com:7051
+      PEER_ORG2_ENDPOINT: peer0.org2.example.com:9051
+      WALLET_DIR: /app/wallet
+      USERS_FILE: /app/config/users.json
+      DATABASE_URL: postgres://sandi:sandi123@postgres:5432/sandichain
+      S3_ENDPOINT: s3
+      VAULT_ADDR: http://vault:8200
+    volumes:
+      - ./fabric-samples/test-network/organizations:/fabric/test-network/organizations:ro
+      - ./backend/wallet:/app/wallet:ro
+      - ./backend/config:/app/config:ro
+      - ./backend/logs:/app/logs
+    depends_on:
+      postgres: { condition: service_healthy }
+      s3: { condition: service_started }
+      vault: { condition: service_started }
+    networks: [default, fabric]
+
+  frontend:
+    profiles: [app]
+    build:
+      context: ./frontend
+      args: { BACKEND_URL: "http://backend:4000" }
+    ports: ["3000:3000"]
+    depends_on: [backend]
+
+volumes:
+  pgdata:
+  s3data:
+
+networks:
+  fabric:
+    name: fabric_test
+    external: true
