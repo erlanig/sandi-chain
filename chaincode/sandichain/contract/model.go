@@ -38,10 +38,13 @@ type Document struct {
 	OwnerOrg    string   `json:"ownerOrg"`  // MSP ID
 	Version     int      `json:"version"`
 	History     []string `json:"history"`    // hash versi-versi sebelumnya
-	Recipients  []string `json:"recipients"` // CN penerima disposisi (akses tambahan "need to know")
-	Revoked     bool     `json:"revoked"`
-	CreatedAt   string   `json:"createdAt"`
-	UpdatedAt   string   `json:"updatedAt"`
+	Recipients  []string `json:"recipients"` // CN penerima disposisi (untuk tampilan)
+	// MSP/CN penerima, sejajar dengan Recipients. Ini yang dipakai untuk
+	// otorisasi. String kosong = entri lama yang hanya punya CN.
+	RecipientIDs []string `json:"recipientIds" metadata:",optional"`
+	Revoked      bool     `json:"revoked"`
+	CreatedAt    string   `json:"createdAt"`
+	UpdatedAt    string   `json:"updatedAt"`
 }
 
 // AuditLog adalah jejak aksi yang immutable. Satu entri per transaksi.
@@ -76,8 +79,25 @@ type ActionResult struct {
 
 // VerifyResult dikembalikan saat verifikasi keaslian.
 type VerifyResult struct {
+	Denied         bool   `json:"denied"` // pemanggil tidak berwenang (tercatat ACCESS_DENIED)
 	Authentic      bool   `json:"authentic"`
 	MatchedVersion int    `json:"matchedVersion"` // 0 kalau tidak cocok sama sekali
 	LatestVersion  int    `json:"latestVersion"`
 	Message        string `json:"message"`
 }
+
+// DocumentPage / AuditPage adalah hasil query berpaginasi. Bookmark kosong
+// berarti tidak ada halaman berikutnya. Jumlah item bisa < pageSize karena
+// hasil disaring sesuai hak akses pemanggil.
+type DocumentPage struct {
+	Documents []*Document `json:"documents"`
+	Bookmark  string      `json:"bookmark"`
+}
+
+type AuditPage struct {
+	Logs     []*AuditLog `json:"logs"`
+	Bookmark string      `json:"bookmark"`
+}
+
+// MaxPageSize membatasi ukuran respons per panggilan.
+const MaxPageSize = 500
