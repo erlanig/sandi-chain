@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth';
 import { Shell } from '@/components/shell';
+import { expectAction } from '@/lib/signer';
 
 export default function ViewerPage() {
   return (
@@ -27,6 +28,7 @@ function Viewer() {
     if (started.current) return;
     started.current = true;
     let objectUrl: string | null = null;
+    expectAction('RequestAccess', [id]);
 
     fetch(`/api/documents/${id}/view`, { credentials: 'same-origin', cache: 'no-store' })
       .then(async (res) => {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { FilePick, Shell, Stamp } from '@/components/shell';
 import { api, Doc, post, shortHash, VerifyResult } from '@/lib/api';
+import { expectAction, fileHash } from '@/lib/signer';
 
 export default function VerifyPage() {
   return (
@@ -34,6 +35,7 @@ function Verify() {
     const fd = new FormData();
     fd.append('file', file);
     try {
+      expectAction('VerifyDocument', [docId, await fileHash(file)]);
       setRes(await post<VerifyResult>(`/documents/${docId}/verify`, fd));
     } catch (e) {
       setError((e as Error).message);
