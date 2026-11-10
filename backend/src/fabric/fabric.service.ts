@@ -13,6 +13,8 @@ import { connect, Contract, Gateway, GatewayError, hash, Network, signers } from
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { p1363ToDerLowS } from '../signing/ecdsa';
+import { SignBroker, SignError, SignRefusedError } from '../signing/sign-broker';
 import { AppUser } from '../users/users.service';
 
 export const KLASIFIKASI = ['BIASA', 'TERBATAS', 'RAHASIA', 'SANGAT_RAHASIA'] as const;
@@ -27,9 +29,29 @@ interface PeerConf {
 const utf8 = new TextDecoder();
 
 /**
+ * Transaksi sudah di-endorse dan dikirim ke orderer, tapi status commit-nya
+ * tidak diketahui (timeout / koneksi putus). Transaksi MUNGKIN tetap masuk
+ * ledger, jadi data off-chain jangan dihapus: biarkan rekonsiliasi memutuskan.
+ */
+export class CommitUnknownError extends ServiceUnavailableException {
+  constructor(
+    readonly txId: string,
+    cause: unknown,
+  ) {
+    super(`Status transaksi ${txId} belum pasti; akan direkonsiliasi otomatis dengan ledger`);
+    this.cause = cause;
+  }
+}
+
+/**
  * Satu Gateway per personel: setiap transaksi ditandatangani dengan kunci
  * privat personel tsb, jadi identitas di ledger = identitas orang, bukan
- * identitas server. (Produksi: kunci di smartcard via signers.newHSMSigner.)
+ * identitas server.
+ *
+ * SIGNING_MODE=server (default, dev): kunci privat personel ada di wallet/ server.
+ * SIGNING_MODE=client: kunci privat personel TIDAK ada di server. Setiap pesan
+ * dikirim ke perangkat personel lewat SignBroker, diperiksa dan ditandatangani
+ * di sana. Identitas layanan (sentinel, keyguard) tetap memakai kunci di server.
  */
 @Injectable()
 export class FabricService implements OnModuleDestroy {
@@ -40,7 +62,14 @@ export class FabricService implements OnModuleDestroy {
   private readonly walletDir: string;
   private readonly peers: Record<string, PeerConf>;
 
-  constructor(private readonly cfg: ConfigService) {
+  private readonly clientSigning: boolean;
+
+  constructor(
+    private readonly cfg: ConfigService,
+    private readonly broker: SignBroker,
+  ) {
+    this.clientSigning = cfg.get('SIGNING_MODE', 'server') === 'client';
+    if (this.clientSigning) this.log.log('SIGNING_MODE=client: transaksi personel ditandatangani di perangkat masing-masing');
     this.ccName = cfg.get('FABRIC_CHAINCODE', 'sandichain');
     this.walletDir = path.resolve(cfg.get('WALLET_DIR', './wallet'));
     const tn = path.resolve(cfg.get('FABRIC_TEST_NETWORK', '../fabric-samples/test-network'));
@@ -84,17 +113,34 @@ export class FabricService implements OnModuleDestroy {
 
   /** Submit + kembalikan txId (dipakai sebagai bukti akses di watermark). */
   async submitTx<T>(user: AppUser, channel: string, fn: string, ...args: string[]): Promise<{ result: T; txId: string }> {
+    let tx;
     try {
-      const tx = await this.contract(user, channel).newProposal(fn, { arguments: args }).endorse();
-      const commit = await tx.submit();
-      const status = await commit.getStatus();
-      if (!status.successful) {
-        throw new ServiceUnavailableException(`Transaksi ${status.transactionId} gagal di-commit (kode ${status.code})`);
-      }
-      return { result: JSON.parse(utf8.decode(tx.getResult())) as T, txId: tx.getTransactionId() };
+      // Gagal di tahap endorse => pasti tidak masuk ledger.
+      tx = await this.contract(user, channel).newProposal(fn, { arguments: args }).endorse();
     } catch (e) {
       throw this.mapError(e, fn);
     }
+    let commit;
+    try {
+      commit = await tx.submit();
+    } catch (e) {
+      // Perangkat menolak/tidak menandatangani envelope => transaksi tidak pernah terkirim.
+      if (e instanceof SignError || e instanceof SignRefusedError) throw e;
+      this.log.warn(`${fn}: status commit ${tx.getTransactionId()} tidak diketahui: ${(e as Error).message}`);
+      throw new CommitUnknownError(tx.getTransactionId(), e);
+    }
+    let status;
+    try {
+      status = await commit.getStatus();
+    } catch (e) {
+      this.log.warn(`${fn}: status commit ${tx.getTransactionId()} tidak diketahui: ${(e as Error).message}`);
+      throw new CommitUnknownError(tx.getTransactionId(), e);
+    }
+    if (!status.successful) {
+      // Ditolak saat validasi (mis. MVCC conflict) => pasti tidak berlaku.
+      throw new ServiceUnavailableException(`Transaksi ${status.transactionId} gagal di-commit (kode ${status.code})`);
+    }
+    return { result: JSON.parse(utf8.decode(tx.getResult())) as T, txId: tx.getTransactionId() };
   }
 
   async evaluate<T>(user: AppUser, channel: string, fn: string, ...args: string[]): Promise<T> {
@@ -116,14 +162,35 @@ export class FabricService implements OnModuleDestroy {
     if (cached) return cached;
 
     const dir = path.join(this.walletDir, user.username);
-    if (!fs.existsSync(path.join(dir, 'cert.pem'))) {
-      throw new ServiceUnavailableException(`Identitas Fabric ${user.username} tidak ada di wallet. Jalankan npm run enroll`);
+    const cert = this.cert(user);
+    const remote = this.signsOnClient(user);
+    let signer;
+    if (remote) {
+      // hash.none: yang dikirim ke perangkat adalah pesan utuh, bukan digest, sehingga
+      // perangkat bisa membaca apa yang ditandatanganinya. ECDSA-SHA256 di perangkat
+      // menghasilkan tanda tangan yang sama dengan menandatangani SHA-256(pesan).
+      const publicKey = new crypto.X509Certificate(cert).publicKey;
+      signer = async (message: Uint8Array) => {
+        const raw = await this.broker.request(user.username, message);
+        if (!crypto.verify('sha256', message, { key: publicKey, dsaEncoding: 'ieee-p1363' }, raw)) {
+          throw new SignRefusedError('tanda tangan tidak cocok dengan sertifikat (kartu identitas salah?)');
+        }
+        return p1363ToDerLowS(raw);
+      };
+    } else {
+      const keyFile = path.join(dir, 'key.pem');
+      if (!fs.existsSync(keyFile)) {
+        throw new ServiceUnavailableException(
+          `Kunci ${user.username} tidak ada di server. Set SIGNING_MODE=client, atau jalankan ulang npm run enroll`,
+        );
+      }
+      signer = signers.newPrivateKeySigner(crypto.createPrivateKey(fs.readFileSync(keyFile)));
     }
     const gw = connect({
       client: this.client(user.org),
-      identity: { mspId: user.mspId, credentials: fs.readFileSync(path.join(dir, 'cert.pem')) },
-      signer: signers.newPrivateKeySigner(crypto.createPrivateKey(fs.readFileSync(path.join(dir, 'key.pem')))),
-      hash: hash.sha256,
+      identity: { mspId: user.mspId, credentials: cert },
+      signer,
+      hash: remote ? hash.none : hash.sha256,
       evaluateOptions: () => ({ deadline: Date.now() + 5_000 }),
       endorseOptions: () => ({ deadline: Date.now() + 15_000 }),
       submitOptions: () => ({ deadline: Date.now() + 5_000 }),
@@ -131,6 +198,25 @@ export class FabricService implements OnModuleDestroy {
     });
     this.gateways.set(user.username, gw);
     return gw;
+  }
+
+  /** true kalau transaksi user ini ditandatangani di perangkatnya, bukan di server. */
+  signsOnClient(user: AppUser): boolean {
+    return this.clientSigning && !user.service;
+  }
+
+  /** SHA-256 (hex) sertifikat X.509 user, untuk mencocokkan kartu identitas di perangkat. */
+  certFingerprint(user: AppUser): string {
+    const der = new crypto.X509Certificate(this.cert(user)).raw;
+    return crypto.createHash('sha256').update(der).digest('hex');
+  }
+
+  private cert(user: AppUser): Buffer {
+    const file = path.join(this.walletDir, user.username, 'cert.pem');
+    if (!fs.existsSync(file)) {
+      throw new ServiceUnavailableException(`Identitas Fabric ${user.username} tidak ada di wallet. Jalankan npm run enroll`);
+    }
+    return fs.readFileSync(file);
   }
 
   private client(org: string): grpc.Client {
@@ -150,6 +236,10 @@ export class FabricService implements OnModuleDestroy {
 
   /** Ubah error chaincode menjadi HTTP error yang bisa dibaca user. */
   private mapError(e: unknown, fn: string): Error {
+    if (e instanceof SignError || e instanceof SignRefusedError) {
+      this.log.warn(`${fn}: ${e.message}`);
+      return e;
+    }
     if (e instanceof GatewayError) {
       const raw = e.details?.map((d) => d.message).join('; ') || e.message;
       const msg = raw.replace(/^.*chaincode response \d+,\s*/i, '').trim();

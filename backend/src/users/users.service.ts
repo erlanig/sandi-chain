@@ -9,7 +9,7 @@ export interface AppUser {
   nrp: string;
   jabatan: string;
   clearance: string;
-  role: 'user' | 'auditor' | 'admin';
+  role: 'user' | 'auditor' | 'admin' | 'keyguard';
   mspId: string;
   org: string;
   passwordHash: string;

@@ -38,6 +38,10 @@ export class StorageService implements OnModuleInit {
     await this.client.putObject(this.bucket, key, data, data.length, { 'Content-Type': 'application/octet-stream' });
   }
 
+  async remove(key: string) {
+    await this.client.removeObject(this.bucket, key);
+  }
+
   async get(key: string): Promise<Buffer> {
     const stream = await this.client.getObject(this.bucket, key);
     const chunks: Buffer[] = [];

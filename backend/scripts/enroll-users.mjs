@@ -3,6 +3,11 @@
 // ditanam ke sertifikat (":ecert"), lalu dibaca chaincode via GetAttributeValue.
 // Output: wallet/<username>/{cert.pem,key.pem} dan config/users.json
 //
+// SIGNING_MODE=client: kunci privat personel TIDAK ditinggal di server. Script ini
+// berperan sebagai "loket penerbitan kartu": kunci dibungkus PIN menjadi
+// cards/<username>.card.json untuk diimpor ke perangkat personel, dan wallet/
+// hanya menyimpan sertifikat. Identitas layanan (sentinel, keyguard) tetap di server.
+//
 // Pakai: npm run enroll   (jaringan Fabric harus sudah jalan dengan -ca)
 
 import { execFileSync } from 'node:child_process';
@@ -11,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
+import { certFingerprint, makeCard } from './card.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 loadEnv(path.join(root, '.env'));
@@ -20,6 +26,9 @@ const bin = path.resolve(tn, '../bin/fabric-ca-client');
 const walletDir = path.resolve(root, process.env.WALLET_DIR ?? './wallet');
 const usersFile = path.resolve(root, process.env.USERS_FILE ?? './config/users.json');
 const seed = JSON.parse(fs.readFileSync(path.join(root, 'config/users.seed.json'), 'utf8'));
+const clientMode = (process.env.SIGNING_MODE ?? 'server') === 'client';
+const cardsDir = path.resolve(root, process.env.CARDS_DIR ?? './cards');
+const pin = seed.defaultPin ?? '123456';
 
 const ORGS = {
   org1: { msp: 'Org1MSP', port: 7054, caname: 'ca-org1' },
@@ -68,8 +77,20 @@ for (const u of seed.users) {
   fs.mkdirSync(dest, { recursive: true });
   fs.copyFileSync(path.join(tmp, 'signcerts/cert.pem'), path.join(dest, 'cert.pem'));
   const sk = fs.readdirSync(path.join(tmp, 'keystore'))[0];
-  fs.copyFileSync(path.join(tmp, 'keystore', sk), path.join(dest, 'key.pem'));
-  fs.chmodSync(path.join(dest, 'key.pem'), 0o600);
+  if (clientMode && !u.service) {
+    // Kunci hanya keluar sebagai kartu terenkripsi; tidak ada salinan di wallet server.
+    const certPem = fs.readFileSync(path.join(dest, 'cert.pem'), 'utf8');
+    const card = makeCard({
+      username: u.username, mspId: org.msp, certFp: certFingerprint(certPem),
+      keyPem: fs.readFileSync(path.join(tmp, 'keystore', sk), 'utf8'), pin: u.pin ?? pin,
+    });
+    fs.mkdirSync(cardsDir, { recursive: true });
+    fs.writeFileSync(path.join(cardsDir, `${u.username}.card.json`), JSON.stringify(card, null, 2), { mode: 0o600 });
+    fs.rmSync(path.join(dest, 'key.pem'), { force: true });
+  } else {
+    fs.copyFileSync(path.join(tmp, 'keystore', sk), path.join(dest, 'key.pem'));
+    fs.chmodSync(path.join(dest, 'key.pem'), 0o600);
+  }
   fs.rmSync(tmp, { recursive: true, force: true });
 
   out.push({
@@ -84,6 +105,10 @@ fs.mkdirSync(path.dirname(usersFile), { recursive: true });
 fs.writeFileSync(usersFile, JSON.stringify(out, null, 2));
 console.log(`\n${out.length} identitas di ${walletDir}`);
 console.log(`users -> ${usersFile} (password default: ${seed.defaultPassword})`);
+if (clientMode) {
+  console.log(`\nSIGNING_MODE=client: kartu identitas personel di ${cardsDir} (PIN default: ${pin}).`);
+  console.log('Serahkan tiap file ke pemiliknya untuk diimpor di portal, lalu hapus dari server.');
+}
 
 function die(m) {
   console.error(m);
