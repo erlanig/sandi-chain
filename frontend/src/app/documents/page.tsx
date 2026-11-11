@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Ban, ChevronLeft, ChevronRight, FileText, Files, Lock, Plus, Search, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, Ban, ChevronLeft, ChevronRight, FileText, Files, Lock, Search, type LucideIcon } from 'lucide-react';
 import { Empty, K_ICON, Stamp } from '@/components/kit';
 import { Shell } from '@/components/shell';
-import { Button } from '@/components/ui/button';
+import { WelcomeBanner } from '@/components/welcome-banner';
 import { api, Doc, fmtDate, KLASIFIKASI, klasLabel } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -92,17 +92,7 @@ function DocumentList() {
 
   return (
     <>
-      <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[26px] font-bold tracking-[-0.02em]">Daftar dokumen</h1>
-          <p className="mt-1 text-[14px] text-muted">Disaring oleh chaincode sesuai clearance dan disposisi Anda.</p>
-        </div>
-        <Button asChild variant="primary" className="h-10 rounded-xl px-4 shadow-[inset_0_-2px_0_rgba(0,0,0,0.18)]">
-          <Link href="/documents/new">
-            <Plus /> Registrasi dokumen
-          </Link>
-        </Button>
-      </div>
+      <WelcomeBanner />
 
       {/* ---------------------------------------------- ringkasan */}
       <section className="mb-6 rounded-2xl border border-line bg-panel-2/60 p-2">

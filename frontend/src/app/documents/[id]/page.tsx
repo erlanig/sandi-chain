@@ -3,18 +3,18 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Ban, Boxes, Eye, FilePlus2, FileText, History, Lock, RefreshCw, Send, ShieldCheck, ShieldX } from 'lucide-react';
+import { Activity, ArrowLeft, Ban, Copy, Eye, FilePlus2, FileText, Fingerprint, History, Lock, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/auth';
-import { AuditList, Empty, FilePick, HashBox, IconTile, KV, Notice, PageHead, Panel, PanelHead, Stamp, StatCard, StatGroup, Verdict } from '@/components/kit';
+import { AuditTimeline, Empty, FilePick, HashBox, IconTile, Notice, Panel, PanelHead, Stamp, Verdict } from '@/components/kit';
 import { Shell } from '@/components/shell';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Field, Input, Textarea } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, AuditLog, DocDetail, fmtDate, klasLabel, post, shortHash, VerifyResult } from '@/lib/api';
 import { expectAction, fileHash } from '@/lib/signer';
+import { cn } from '@/lib/utils';
 
 export default function DocumentDetailPage() {
   return (
@@ -24,12 +24,21 @@ export default function DocumentDetailPage() {
   );
 }
 
+const FILTERS: { key: string; label: string; match: (a: string) => boolean }[] = [
+  { key: 'semua', label: 'Semua', match: () => true },
+  { key: 'ditolak', label: 'Ditolak', match: (a) => a === 'ACCESS_DENIED' || a === 'VERIFY_TAMPERED' },
+  { key: 'dibuka', label: 'Dibuka', match: (a) => a === 'ACCESS_GRANTED' },
+  { key: 'perubahan', label: 'Perubahan', match: (a) => ['REGISTER', 'NEW_VERSION', 'DISPOSITION', 'REVOKE'].includes(a) },
+  { key: 'verifikasi', label: 'Verifikasi', match: (a) => a === 'VERIFY_OK' || a === 'VERIFY_TAMPERED' },
+];
+
 function Detail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [doc, setDoc] = useState<DocDetail | null>(null);
   const [logs, setLogs] = useState<AuditLog[] | null>(null);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState('semua');
 
   const canAudit = doc && (doc.isOwner || user?.role === 'auditor' || user?.role === 'admin');
 
@@ -61,6 +70,14 @@ function Detail() {
   const manage = doc.isOwner && !doc.revoked;
   const count = (a: string) => (logs ? logs.filter((l) => l.action === a).length : null);
   const show = (n: number | null) => (n === null ? '–' : String(n).padStart(2, '0'));
+  const shownLogs = (logs ?? []).filter((l) => FILTERS.find((f) => f.key === filter)!.match(l.action));
+
+  const metrics: [string, string][] = [
+    ['Versi terkini', `v${doc.version}`],
+    ['Dibuka', show(count('ACCESS_GRANTED'))],
+    ['Akses ditolak', show(count('ACCESS_DENIED'))],
+    ['Disposisi', String(doc.recipients.length).padStart(2, '0')],
+  ];
 
   return (
     <>
@@ -68,25 +85,32 @@ function Detail() {
         <ArrowLeft className="size-4" /> Daftar dokumen
       </Link>
 
-      <PageHead
-        eyebrow={
-          <>
-            <Stamp k={doc.klasifikasi} />
-            {doc.revoked ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-warn/10 px-2.5 py-1 text-[12px] font-semibold text-warn">
-                <Lock className="size-3" /> Dicabut
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/10 px-2.5 py-1 text-[12px] font-semibold text-ok">
-                <span className="size-1.5 rounded-full bg-current" /> Aktif
-              </span>
-            )}
-            <span className="rounded-full bg-panel-2 px-2.5 py-1 font-mono text-[11.5px] text-muted">{doc.docId}</span>
-          </>
-        }
-        title={doc.nomor}
-        actions={
-          <>
+      {/* ------------------------------------------------ kepala berkas: kartu polos */}
+      <section className="mb-6 overflow-hidden rounded-2xl border border-line bg-panel">
+        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5 p-6 sm:p-8">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Stamp k={doc.klasifikasi} />
+              {doc.revoked ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-warn/10 px-2.5 py-1 text-[12px] font-semibold text-warn">
+                  <Lock className="size-3" /> Dicabut
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/10 px-2.5 py-1 text-[12px] font-semibold text-ok">
+                  <span className="size-1.5 rounded-full bg-current" /> Aktif
+                </span>
+              )}
+            </div>
+
+            <h1 className="mt-4 text-[30px] leading-tight font-bold tracking-[-0.02em] break-words sm:text-[34px]">{doc.nomor}</h1>
+            <p className="mt-1 text-[15px] text-muted">{doc.perihal}</p>
+
+            <p className="mt-4 text-[13px] text-faint">
+              {doc.ownerName} ({doc.ownerOrg}) · {doc.channel} · {fmtDate(doc.createdAt)} · <span className="font-mono text-[12px]">{doc.docId}</span>
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             {manage && (
               <>
                 <DispositionDialog docId={doc.docId} sr={doc.klasifikasi === 'SANGAT_RAHASIA'} onDone={refresh} />
@@ -99,107 +123,139 @@ function Detail() {
                 Dokumen dicabut
               </Button>
             ) : (
-              <Button asChild variant="primary" className="h-10 rounded-xl px-4 shadow-[inset_0_-2px_0_rgba(0,0,0,0.18)]">
+              <Button asChild variant="primary" className="h-10 rounded-xl px-5">
                 <Link href={`/documents/${doc.docId}/view`}>
                   <Eye /> Buka dokumen
                 </Link>
               </Button>
             )}
-          </>
-        }
-      >
-        {doc.perihal}
-      </PageHead>
-
-      <StatGroup className="mb-6">
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <StatCard label="Versi terkini" value={`v${doc.version}`} note={`${doc.versions.length} versi tersimpan`} icon={History} tone="bg-accent/10 text-accent" />
-          <StatCard label="Dibuka" value={show(count('ACCESS_GRANTED'))} note={canAudit ? 'akses berhasil' : 'khusus pemilik/auditor'} icon={Eye} tone="bg-ok/10 text-ok" />
-          <StatCard label="Akses ditolak" value={show(count('ACCESS_DENIED'))} note={canAudit ? 'tercatat & dilaporkan' : 'khusus pemilik/auditor'} icon={ShieldX} tone="bg-bad/10 text-bad" />
-          <StatCard label="Disposisi" value={String(doc.recipients.length).padStart(2, '0')} note={doc.recipients.length ? doc.recipients.join(', ') : 'belum ada penerima'} icon={Send} tone="bg-k-terbatas/10 text-k-terbatas" />
+          </div>
         </div>
-      </StatGroup>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <Panel className="min-w-0 overflow-hidden">
-          <Tabs defaultValue={canAudit ? 'jejak' : 'versi'}>
-            <div className="flex items-center justify-between border-b border-line pr-3">
-              <TabsList className="border-b-0">
-                {canAudit && (
-                  <TabsTrigger value="jejak">
-                    Jejak akses
-                    {logs && <span className="rounded-full bg-panel-2 px-2 py-0.5 text-[11.5px] font-medium text-muted">{logs.length}</span>}
-                  </TabsTrigger>
-                )}
-                <TabsTrigger value="versi">
-                  Riwayat versi <span className="rounded-full bg-panel-2 px-2 py-0.5 text-[11.5px] font-medium text-muted">{doc.versions.length}</span>
-                </TabsTrigger>
-              </TabsList>
-              {canAudit && (
-                <Button variant="ghost" size="sm" className="h-8 rounded-lg" onClick={loadLogs}>
-                  <RefreshCw /> <span className="max-sm:hidden">Muat ulang</span>
-                </Button>
-              )}
+        <dl className="grid grid-cols-2 gap-px border-t border-line bg-line lg:grid-cols-4">
+          {metrics.map(([label, value]) => (
+            <div key={label} className="bg-panel px-6 py-4 sm:px-8 lg:px-6 lg:first:pl-8">
+              <dt className="text-[12.5px] text-muted">{label}</dt>
+              <dd className="mt-1 text-[24px] leading-none font-bold tracking-[-0.02em] tabular-nums">{value}</dd>
             </div>
+          ))}
+        </dl>
+      </section>
 
-            {canAudit && (
-              <TabsContent value="jejak">
-                <p className="flex items-center gap-2 border-b border-line bg-panel-2/50 px-5 py-2.5 text-[12.5px] text-muted">
-                  <Lock className="size-3.5" /> Dibaca langsung dari ledger. Entri tidak bisa diubah atau dihapus.
-                </p>
-                {!logs ? <Empty>Memuat…</Empty> : <AuditList logs={logs} />}
-              </TabsContent>
-            )}
+      {/* ------------------------------------------------ rel info (kiri) + linimasa (kanan) */}
+      <div className="grid items-start gap-6 xl:grid-cols-[370px_minmax(0,1fr)]">
+        <aside className="order-2 grid gap-6 xl:sticky xl:top-28 xl:order-1">
+          <Panel>
+            <PanelHead title="Sidik jari on-chain" description="SHA-256 versi terkini" icon={Fingerprint}>
+              <CopyButton value={doc.hash} />
+            </PanelHead>
+            <div className="p-5">
+              <HashBox value={doc.hash} />
+              <p className="mt-3 flex items-center gap-2 text-[12.5px] text-muted">
+                <Lock className="size-3.5 shrink-0" /> Tercatat di Hyperledger Fabric, tidak bisa diubah.
+              </p>
+            </div>
+          </Panel>
 
-            <TabsContent value="versi">
-              <ol className="divide-y divide-line">
-                {[...doc.versions].reverse().map((v) => (
-                  <li key={v.version} className="flex items-center gap-3.5 px-5 py-3.5">
-                    <IconTile icon={FileText} tone={v.version === doc.version ? 'bg-accent/10 text-accent' : 'bg-panel-2 text-muted'} />
+          <Panel className="overflow-hidden">
+            <PanelHead title="Riwayat versi" description={`${doc.versions.length} versi tersimpan`} icon={History} />
+            <ol className="divide-y divide-line">
+              {[...doc.versions].reverse().map((v) => {
+                const now = v.version === doc.version;
+                return (
+                  <li key={v.version} className={cn('flex items-center gap-3 px-5 py-3.5', now && 'bg-accent/[0.05]')}>
+                    <span className={cn('grid size-9 shrink-0 place-items-center rounded-xl text-[13px] font-bold', now ? 'bg-accent text-accent-ink' : 'bg-panel-2 text-muted')}>
+                      v{v.version}
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <p className="flex flex-wrap items-center gap-2 text-[14px] font-semibold">
-                        Versi {v.version}
-                        {v.version === doc.version && <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[11.5px] font-semibold text-accent">Terkini</span>}
+                      <p className="flex items-center gap-2 truncate text-[13.5px] font-semibold">
+                        <span className="truncate">{v.filename}</span>
+                        {now && <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">Terkini</span>}
                       </p>
-                      <p className="truncate text-[13px] text-muted">
-                        {v.filename} · {(v.size / 1024).toFixed(1)} KB · {fmtDate(v.created_at)}
+                      <p className="truncate text-[12.5px] text-muted">
+                        {(v.size / 1024).toFixed(1)} KB · {fmtDate(v.created_at)}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11.5px] text-faint" title={v.sha256}>
+                        {shortHash(v.sha256)}
                       </p>
                     </div>
-                    <code className="hidden rounded-md bg-panel-2 px-2 py-1 font-mono text-[11.5px] text-muted sm:block" title={v.sha256}>
-                      {shortHash(v.sha256)}
-                    </code>
                   </li>
-                ))}
-              </ol>
-            </TabsContent>
-          </Tabs>
-        </Panel>
-
-        <div className="grid gap-6">
-          <Panel>
-            <PanelHead title="Catatan on-chain" description="Tercatat di Hyperledger Fabric" icon={Boxes} />
-            <div className="px-5 pt-4">
-              <p className="mb-1.5 text-[12.5px] text-muted">SHA-256 terkini</p>
-              <HashBox value={doc.hash} />
-            </div>
-            <KV
-              rows={[
-                [
-                  'Pembuat',
-                  <>
-                    {doc.ownerName} <span className="font-normal text-faint">({doc.ownerOrg})</span>
-                  </>,
-                ],
-                ['Channel', <span className="font-mono text-[13px]">{doc.channel}</span>],
-                ['Didaftarkan', fmtDate(doc.createdAt)],
-                ['Diperbarui', fmtDate(doc.updatedAt)],
-              ]}
-            />
+                );
+              })}
+            </ol>
           </Panel>
+
           <VerifyBox docId={doc.docId} />
-        </div>
+        </aside>
+
+        <Panel className="order-1 min-w-0 xl:order-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
+            <div className="flex items-center gap-3">
+              <IconTile icon={Activity} className="size-9" />
+              <div>
+                <h2 className="text-[15px] font-semibold">Jejak akses</h2>
+                <p className="text-[12.5px] text-muted">Dibaca langsung dari ledger, tidak bisa diubah atau dihapus</p>
+              </div>
+            </div>
+            {canAudit && (
+              <Button variant="ghost" size="sm" className="h-9 rounded-xl" onClick={loadLogs}>
+                <RefreshCw /> Muat ulang
+              </Button>
+            )}
+          </div>
+
+          {!canAudit ? (
+            <Empty icon={Lock} className="py-16">
+              <span>
+                <span className="block font-semibold text-ink">Jejak akses dibatasi</span>
+                Hanya pemilik dokumen dan auditor yang dapat melihatnya.
+              </span>
+            </Empty>
+          ) : !logs ? (
+            <Empty>Memuat…</Empty>
+          ) : (
+            <>
+              <div className="flex gap-1 overflow-x-auto border-b border-line px-5 py-3 sm:px-6" role="group" aria-label="Saring jejak akses">
+                {FILTERS.map((f) => {
+                  const n = logs.filter((l) => f.match(l.action)).length;
+                  return (
+                    <button
+                      key={f.key}
+                      aria-pressed={filter === f.key}
+                      onClick={() => setFilter(f.key)}
+                      className={cn(
+                        'flex h-9 shrink-0 items-center gap-2 rounded-xl px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors',
+                        filter === f.key ? 'bg-accent text-accent-ink shadow-sm' : 'text-muted hover:bg-panel-2 hover:text-ink',
+                      )}
+                    >
+                      {f.label}
+                      <span className={cn('rounded-full px-1.5 text-[11.5px] tabular-nums', filter === f.key ? 'bg-black/15' : 'bg-panel-2')}>{n}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <AuditTimeline logs={shownLogs} />
+            </>
+          )}
+        </Panel>
       </div>
     </>
+  );
+}
+
+function CopyButton({ value }: { value: string }) {
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success('Hash disalin.');
+    } catch {
+      toast.error('Tidak bisa menyalin di browser ini.');
+    }
+  }
+  return (
+    <Button variant="ghost" size="sm" className="h-8 rounded-lg" onClick={copy}>
+      <Copy /> Salin
+    </Button>
   );
 }
 

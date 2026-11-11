@@ -8,8 +8,8 @@ export function Toaster() {
     <Sonner
       position="top-right"
       // di bawah banner klasifikasi + navbar yang menempel di atas
-      offset={{ top: 104 }}
-      mobileOffset={{ top: 100 }}
+      offset={{ top: 112 }}
+      mobileOffset={{ top: 112 }}
       toastOptions={{
         unstyled: true,
         classNames: {

@@ -1,165 +1,136 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Dialog, DropdownMenu } from 'radix-ui';
-import { ChevronDown, CreditCard, FilePlus2, Files, LogOut, Menu, ShieldCheck, Siren, type LucideIcon } from 'lucide-react';
+import { DropdownMenu } from 'radix-ui';
+import { ChevronDown, CreditCard, FilePlus2, Files, LogOut, Menu, PenLine, ShieldCheck, Siren, type LucideIcon } from 'lucide-react';
 import { klasLabel } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuth } from './auth';
 import { ClassBanner, Empty, FilePick, Logo, Notice, Panel, Stamp, ThemeToggle } from './kit';
+import { SiteFooter } from './site-footer';
 import { Button } from './ui/button';
 import { Field, Input } from './ui/input';
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
-type NavGroup = { title: string; items: NavItem[] };
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { user, loading, refused, signing } = useAuth();
   const path = usePathname();
-  const [drawer, setDrawer] = useState(false);
 
   if (loading || !user || signing === 'checking') {
     return <Empty className="pt-24">Memuat sesi…</Empty>;
   }
   if (signing === 'need-card') return <CardGate />;
 
-  const groups: NavGroup[] = [
-    {
-      title: 'Dokumen',
-      items: [
-        { href: '/documents', label: 'Daftar dokumen', icon: Files },
-        { href: '/documents/new', label: 'Registrasi', icon: FilePlus2 },
-        { href: '/verify', label: 'Verifikasi', icon: ShieldCheck },
-      ],
-    },
-    ...(user.role === 'auditor' || user.role === 'admin'
-      ? [{ title: 'Pengamanan', items: [{ href: '/security', label: 'Pusat pengamanan', icon: Siren }] }]
-      : []),
+  const nav: NavItem[] = [
+    { href: '/documents', label: 'Dokumen', icon: Files },
+    { href: '/documents/new', label: 'Registrasi', icon: FilePlus2 },
+    { href: '/verify', label: 'Verifikasi', icon: ShieldCheck },
+    ...(user.role === 'auditor' || user.role === 'admin' ? [{ href: '/security', label: 'Pengamanan', icon: Siren }] : []),
   ];
-  // "/documents/new" adalah menu sendiri; halaman dokumen lain termasuk "Daftar dokumen".
+  // "/documents/new" adalah menu sendiri; halaman dokumen lain termasuk "Dokumen".
   const active = (href: string) =>
     href === '/documents' ? path.startsWith('/documents') && path !== '/documents/new' : path.startsWith(href);
-  const current = groups.flatMap((g) => g.items).find((n) => active(n.href));
-  const CurrentIcon = current?.icon ?? Files;
+  const current = nav.find((n) => active(n.href));
 
   return (
-    <div className="min-h-screen bg-bg">
-      <div className="fixed inset-x-0 top-0 z-50">
+    <div className="flex min-h-screen flex-col bg-bg">
+      {/* banner sesi + navbar menempel di atas layar */}
+      <div className="fixed inset-x-0 top-0 z-40">
         <ClassBanner k={user.clearance}>
           <span className="block truncate">Sesi {klasLabel(user.clearance)} — setiap akses dicatat di ledger</span>
         </ClassBanner>
+        <header className="border-b border-line bg-panel/85 backdrop-blur-xl">
+          <div className="mx-auto grid h-16 max-w-[1360px] grid-cols-[1fr_auto_1fr] items-center px-3 sm:px-6">
+          <div className="flex items-center gap-1 justify-self-start">
+            <MobileNav nav={nav} active={active} current={current?.label} />
+            <Link href="/documents" className="flex items-center gap-2.5 rounded-full py-1 pr-3 pl-2 max-lg:pl-1">
+              <Logo className="h-6" />
+              <span className="text-[15px] font-bold tracking-[-0.01em] max-md:hidden">SANDI-Chain</span>
+            </Link>
+          </div>
+
+          <nav className="hidden items-center gap-1 lg:flex" aria-label="Utama">
+            {nav.map((n) => {
+              const on = active(n.href);
+              const Icon = n.icon;
+              return (
+                <Link
+                  key={n.href}
+                  href={n.href}
+                  aria-current={on ? 'page' : undefined}
+                  className={cn(
+                    'flex h-10 items-center gap-2 rounded-full px-4 text-[13.5px] font-medium transition-colors',
+                    on ? 'bg-accent text-accent-ink shadow-[inset_0_-2px_0_rgba(0,0,0,0.18)]' : 'text-muted hover:bg-panel-2 hover:text-ink',
+                  )}
+                >
+                  <Icon className="size-4" />
+                  {n.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="col-start-3 flex items-center gap-1 justify-self-end max-lg:col-start-2">
+            <ThemeToggle className="rounded-full" />
+            <ProfileMenu />
+          </div>
+          </div>
+        </header>
       </div>
 
-      {/* sidebar tetap (layar lebar) */}
-      <aside className="fixed top-6 bottom-0 left-0 z-40 hidden w-[264px] lg:block">
-        <Sidebar groups={groups} active={active} />
-      </aside>
+      <main className="mx-auto w-full max-w-[1360px] flex-1 px-4 pt-[120px] pb-16 sm:px-6">
+        {refused && (
+          <Notice tone="bad" className="mb-5">
+            <b>Perangkat menolak menandatangani permintaan dari server.</b>
+            <div>{refused}</div>
+            <div className="text-muted">Jika Anda tidak sedang melakukan aksi tersebut, laporkan ke unit pengamanan.</div>
+          </Notice>
+        )}
+        {children}
+      </main>
 
-      {/* sidebar sebagai laci (layar kecil) */}
-      <Dialog.Root open={drawer} onOpenChange={setDrawer}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 lg:hidden" />
-          <Dialog.Content className="fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[85vw] bg-bg shadow-2xl lg:hidden" aria-describedby={undefined}>
-            <Dialog.Title className="sr-only">Menu</Dialog.Title>
-            <Sidebar groups={groups} active={active} onNavigate={() => setDrawer(false)} />
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-
-      <div className="pt-6 lg:py-2 lg:pr-2 lg:pl-[264px]">
-        {/* panel konten putih di atas kanvas abu, seperti lembar kerja */}
-        <div className="min-h-[calc(100vh-24px)] bg-panel lg:mt-6 lg:min-h-[calc(100vh-40px)] lg:rounded-2xl lg:border lg:border-line lg:shadow-[0_1px_3px_rgba(20,25,15,0.05)]">
-          <header className="sticky top-6 z-30 flex h-16 items-center gap-3 border-b border-line bg-panel/90 px-4 backdrop-blur-md sm:px-7 lg:top-8 lg:rounded-t-2xl">
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setDrawer(true)} aria-label="Buka menu">
-              <Menu />
-            </Button>
-            <div className="flex min-w-0 items-center gap-2.5 text-[14px] text-muted">
-              <CurrentIcon className="size-[18px] shrink-0" />
-              <span className="truncate">{current?.label ?? 'Portal'}</span>
-            </div>
-            <div className="ml-auto flex items-center gap-1.5">
-              <ThemeToggle />
-              <ProfileMenu />
-            </div>
-          </header>
-
-          <main className="px-4 pt-7 pb-16 sm:px-7">
-            {refused && (
-              <Notice tone="bad" className="mb-5">
-                <b>Perangkat menolak menandatangani permintaan dari server.</b>
-                <div>{refused}</div>
-                <div className="text-muted">Jika Anda tidak sedang melakukan aksi tersebut, laporkan ke unit pengamanan.</div>
-              </Notice>
-            )}
-            {children}
-          </main>
-        </div>
-      </div>
+      <SiteFooter />
     </div>
   );
 }
 
-/** Sidebar terang di atas kanvas; menu aktif tampil sebagai kartu putih. */
-function Sidebar({ groups, active, onNavigate }: { groups: NavGroup[]; active: (href: string) => boolean; onNavigate?: () => void }) {
-  const { user, signing } = useAuth();
-  if (!user) return null;
+/** Menu untuk layar kecil: dropdown dari tombol hamburger di dalam kapsul. */
+function MobileNav({ nav, active, current }: { nav: NavItem[]; active: (href: string) => boolean; current?: string }) {
+  const router = useRouter();
   return (
-    <div className="flex h-full flex-col px-3 pt-4 pb-3">
-      <Link href="/documents" onClick={onNavigate} className="flex items-center gap-3 rounded-xl px-2.5 py-2">
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-line bg-panel shadow-sm">
-          <Logo className="h-[18px]" />
-        </span>
-        <span className="min-w-0 leading-tight">
-          <span className="block text-[15px] font-bold tracking-[-0.01em]">SANDI-Chain</span>
-          <span className="block truncate text-[12.5px] text-muted">Portal dokumen dinas</span>
-        </span>
-      </Link>
-
-      <nav className="mt-5 flex-1 overflow-y-auto" aria-label="Utama">
-        {groups.map((g) => (
-          <div key={g.title} className="mb-5">
-            <p className="mb-1.5 px-3 text-[11.5px] font-medium tracking-[0.06em] text-faint uppercase">{g.title}</p>
-            <ul className="grid gap-0.5">
-              {g.items.map((n) => {
-                const on = active(n.href);
-                const Icon = n.icon;
-                return (
-                  <li key={n.href}>
-                    <Link
-                      href={n.href}
-                      onClick={onNavigate}
-                      aria-current={on ? 'page' : undefined}
-                      className={cn(
-                        'flex h-10 items-center gap-3 rounded-xl border px-3 text-[14px] transition-colors',
-                        on
-                          ? 'border-line bg-panel font-semibold text-ink shadow-[0_1px_2px_rgba(20,25,15,0.06)]'
-                          : 'border-transparent text-muted hover:bg-panel/60 hover:text-ink',
-                      )}
-                    >
-                      <Icon className={cn('size-[18px]', on ? 'text-accent' : 'text-faint')} />
-                      {n.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </nav>
-
-      <div className="rounded-xl border border-line bg-panel p-3.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[12px] text-muted">Sesi aktif</span>
-          <Stamp k={user.clearance} className="text-[10.5px]" />
-        </div>
-        <p className="mt-2 flex items-center gap-2 text-[12.5px] text-muted">
-          <span className="live-dot size-1.5 rounded-full bg-ok" aria-hidden />
-          {signing === 'ready' ? 'Tanda tangan di perangkat ini' : 'Tanda tangan oleh server'}
-        </p>
-      </div>
-    </div>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        className="grid size-10 place-items-center rounded-full text-muted outline-none hover:bg-panel-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent data-[state=open]:bg-panel-2 lg:hidden"
+        aria-label="Buka menu"
+      >
+        <Menu className="size-5" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="start" sideOffset={14} className="z-50 w-64 rounded-3xl border border-line bg-panel p-2 shadow-xl shadow-black/15">
+          <p className="px-3 pt-2 pb-1.5 text-[11.5px] font-medium tracking-[0.06em] text-faint uppercase">{current ?? 'Menu'}</p>
+          {nav.map((n) => {
+            const on = active(n.href);
+            const Icon = n.icon;
+            return (
+              <DropdownMenu.Item
+                key={n.href}
+                onSelect={() => router.push(n.href)}
+                className={cn(
+                  'flex h-11 cursor-pointer items-center gap-3 rounded-2xl px-3 text-[14px] outline-none',
+                  on ? 'bg-accent font-semibold text-accent-ink' : 'text-ink data-[highlighted]:bg-panel-2',
+                )}
+              >
+                <Icon className="size-[18px]" />
+                {n.label}
+              </DropdownMenu.Item>
+            );
+          })}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
 
@@ -174,9 +145,9 @@ function ProfileMenu() {
   if (!user) return null;
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger className="flex items-center gap-2.5 rounded-xl py-1.5 pr-2 pl-1.5 text-left transition-colors outline-none hover:bg-panel-2 focus-visible:outline-2 focus-visible:outline-accent data-[state=open]:bg-panel-2">
+      <DropdownMenu.Trigger className="flex items-center gap-2.5 rounded-full py-1 pr-2.5 pl-1 text-left transition-colors outline-none hover:bg-panel-2 focus-visible:outline-2 focus-visible:outline-accent data-[state=open]:bg-panel-2">
         <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-[13px] font-semibold text-accent-ink">{initials(user.nama)}</span>
-        <span className="hidden leading-tight sm:block">
+        <span className="hidden leading-tight md:block">
           <span className="block max-w-48 truncate text-[13px] font-semibold">{user.nama}</span>
           <span className="block text-xs text-muted">{user.jabatan}</span>
         </span>
@@ -186,7 +157,7 @@ function ProfileMenu() {
         <DropdownMenu.Content
           align="end"
           sideOffset={8}
-          className="z-50 w-72 rounded-xl border border-line bg-panel p-1.5 text-ink shadow-xl shadow-black/15"
+          className="z-50 w-72 rounded-3xl border border-line bg-panel p-2 text-ink shadow-xl shadow-black/15"
         >
           <div className="px-3 pt-2.5 pb-3">
             <div className="flex items-center gap-3">
@@ -202,19 +173,23 @@ function ProfileMenu() {
               </span>
               <Stamp k={user.clearance} className="text-[10.5px]" />
             </div>
+            <p className="mt-2.5 flex items-center gap-2 rounded-xl bg-panel-2 px-3 py-2 text-[12.5px] text-muted">
+              <PenLine className="size-3.5" />
+              {signing === 'ready' ? 'Tanda tangan di perangkat ini' : 'Tanda tangan oleh server'}
+            </p>
           </div>
           <DropdownMenu.Separator className="my-1 h-px bg-line" />
           {signing === 'ready' && (
             <DropdownMenu.Item
               onSelect={ejectCard}
-              className="flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-3 text-[13px] outline-none data-[highlighted]:bg-panel-2"
+              className="flex h-10 cursor-pointer items-center gap-2.5 rounded-2xl px-3 text-[13px] outline-none data-[highlighted]:bg-panel-2"
             >
               <CreditCard className="size-4 text-muted" /> Lepas kartu dari perangkat
             </DropdownMenu.Item>
           )}
           <DropdownMenu.Item
             onSelect={logout}
-            className="flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-3 text-[13px] text-bad outline-none data-[highlighted]:bg-bad-wash"
+            className="flex h-10 cursor-pointer items-center gap-2.5 rounded-2xl px-3 text-[13px] text-bad outline-none data-[highlighted]:bg-bad-wash"
           >
             <LogOut className="size-4" /> Keluar
           </DropdownMenu.Item>

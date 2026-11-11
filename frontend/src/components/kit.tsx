@@ -356,3 +356,66 @@ export function AuditList({ logs, showDoc }: { logs: AuditLog[]; showDoc?: boole
     </ol>
   );
 }
+
+/* ------------------------------------------------------------------ linimasa jejak akses */
+
+const dayKey = (s: string) => new Date(s).toLocaleDateString('id-ID', { dateStyle: 'long', timeZone: 'Asia/Jakarta' });
+const clock = (s: string) => new Date(s).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
+
+/** Jejak akses sebagai linimasa vertikal: dikelompokkan per tanggal, tiap entri berupa simpul berikon. */
+export function AuditTimeline({ logs }: { logs: AuditLog[] }) {
+  if (logs.length === 0) return <Empty icon={History}>Tidak ada entri untuk saringan ini.</Empty>;
+
+  const groups: { day: string; items: AuditLog[] }[] = [];
+  for (const l of logs) {
+    const day = dayKey(l.timestamp);
+    const last = groups[groups.length - 1];
+    if (last && last.day === day) last.items.push(l);
+    else groups.push({ day, items: [l] });
+  }
+
+  return (
+    <div className="px-5 pt-2 pb-5 sm:px-6">
+      {groups.map((g) => (
+        <section key={g.day}>
+          <h3 className="sticky top-[88px] z-10 -mx-1 bg-panel/95 px-1 py-3 text-[12px] font-semibold tracking-[0.08em] text-faint uppercase backdrop-blur">{g.day}</h3>
+          <ol className="relative">
+            {/* garis linimasa */}
+            <span className="absolute top-2 bottom-2 left-[19px] w-0.5 rounded-full bg-line" aria-hidden />
+            {g.items.map((l) => {
+              const st = ACTION_STYLE[l.action] ?? ACTION_DEFAULT;
+              const bad = l.action === 'ACCESS_DENIED' || l.action === 'VERIFY_TAMPERED';
+              return (
+                <li key={l.txId} className="relative flex gap-4 pb-4 last:pb-0">
+                  {/* alas buram supaya garis linimasa tidak tembus di balik ikon */}
+                  <span className="relative z-[1] h-fit shrink-0 rounded-xl bg-panel ring-4 ring-panel">
+                    <IconTile icon={st.icon} tone={st.tone} />
+                  </span>
+                  <div className={cn('min-w-0 flex-1 rounded-xl border p-3.5', bad ? 'border-bad/25 bg-bad/[0.04]' : 'border-line')}>
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
+                      <p className={cn('text-[14px] font-semibold', st.text)}>{ACTION_LABEL[l.action] ?? l.action}</p>
+                      <time className="font-mono text-[12px] text-faint" dateTime={l.timestamp}>
+                        {clock(l.timestamp)} WIB
+                      </time>
+                    </div>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13.5px]">
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-accent/10 text-[10px] font-bold text-accent">{l.actor.slice(0, 2).toUpperCase()}</span>
+                      <span className="font-medium">{l.actor}</span>
+                      <span className="text-muted">
+                        {l.jabatan || '-'} · {l.actorOrg}
+                      </span>
+                    </p>
+                    {l.detail && <p className="mt-1.5 text-[13px] break-words text-muted">{l.detail}</p>}
+                    <p className="mt-2 inline-block rounded-md bg-panel-2 px-2 py-0.5 font-mono text-[11.5px] text-faint" title={l.txId}>
+                      tx {l.txId.slice(0, 20)}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ))}
+    </div>
+  );
+}
