@@ -12,6 +12,9 @@ import { startSigner } from '@/lib/signer';
  * ready     = kunci ada di perangkat ini dan penanda tangan berjalan
  * need-card = mode client, tapi perangkat ini belum punya kartu yang cocok
  */
+/** Halaman yang boleh dibuka tanpa login. */
+const PUBLIC_PATHS = ['/', '/login'];
+
 export type Signing = 'checking' | 'server' | 'ready' | 'need-card';
 
 interface SignInfo {
@@ -107,14 +110,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!loading && !user && pathname !== '/login') router.replace('/login');
+    if (!loading && !user && !PUBLIC_PATHS.includes(pathname)) router.replace('/login');
   }, [loading, user, pathname, router]);
 
   const login = useCallback(
     async (username: string, password: string) => {
       const u = await post<User>('/auth/login', { username, password });
       setUser(u);
-      router.replace('/');
+      router.replace('/documents');
     },
     [router],
   );

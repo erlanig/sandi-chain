@@ -217,7 +217,7 @@ Prototype ini sengaja disederhanakan. Untuk penggunaan nyata:
 | Watermark & viewer: halaman RAHASIA ke atas dikirim sebagai gambar ber-watermark. Ini menaikkan biaya, bukan jaminan: watermark abu-abu bisa dikurangi dengan pengolahan gambar, dan isi bisa diketik ulang atau difoto. | Ditambah DRM/viewer terkunci, pemblokiran print/download di endpoint, dan watermark forensik tak kasatmata. Watermark tidak mencegah pemotretan, tapi membuat pelaku bisa dilacak. |
 | SeaweedFS dev | Object storage on-prem terenkripsi (MinIO/Ceph) di jaringan terisolasi. |
 
-Semua komponen berjalan on-prem tanpa internet (font sistem, tanpa CDN), sesuai untuk jaringan air-gapped. Unduhan image dan dependency hanya diperlukan saat instalasi.
+Semua komponen berjalan on-prem tanpa internet (font disimpan di repo, tanpa CDN), sesuai untuk jaringan air-gapped. Unduhan image dan dependency hanya diperlukan saat instalasi.
 
 ## Docker (opsional)
 
