@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/fabric-chaincode-go/v2/shim"
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
 )
 
@@ -51,26 +52,64 @@ func identify(ctx contractapi.TransactionContextInterface) (*Identity, error) {
 	}, nil
 }
 
-// CanAccess adalah aturan akses inti (pure function, mudah di-unit test).
+// QualifiedName menggabungkan MSP ID dan CN sertifikat. CN saja tidak unik
+// lintas organisasi (tiap org punya CA sendiri), jadi disposisi mengacu ke
+// pasangan MSP/CN.
+func QualifiedName(msp, cn string) string {
+	return msp + "/" + cn
+}
+
+// IsRecipient mengecek apakah identitas ada di daftar disposisi.
+// Entri lama (sebelum RecipientIDs ada) hanya punya CN dan dicocokkan dengan CN.
+func IsRecipient(doc *Document, who *Identity) bool {
+	q := QualifiedName(who.MSP, who.Name)
+	for i, cn := range doc.Recipients {
+		if i < len(doc.RecipientIDs) && doc.RecipientIDs[i] != "" {
+			if doc.RecipientIDs[i] == q {
+				return true
+			}
+			continue
+		}
+		if cn == who.Name { // entri lama tanpa MSP
+			return true
+		}
+	}
+	return false
+}
+
+// CanAccess adalah aturan akses inti untuk membuka isi dokumen
+// (pure function, mudah di-unit test).
 //   - dokumen dicabut          => ditolak
 //   - pemilik                  => selalu boleh
 //   - clearance < klasifikasi  => ditolak
 //   - SANGAT_RAHASIA           => wajib ada di daftar disposisi (need to know)
-func CanAccess(doc *Document, userID, userName, clearance string) (bool, string) {
+func CanAccess(doc *Document, who *Identity) (bool, string) {
 	if doc.Revoked {
 		return false, "dokumen sudah dicabut"
 	}
-	if doc.Owner == userID {
+	return needToKnow(doc, who)
+}
+
+// CanView menentukan siapa yang boleh melihat METADATA dokumen (nomor, hash,
+// penerima, perihal) dan memverifikasi salinannya. Sama dengan CanAccess,
+// ditambah auditor/admin, dan tetap berlaku untuk dokumen yang dicabut.
+func CanView(doc *Document, who *Identity) (bool, string) {
+	if who.Role == "auditor" || who.Role == "admin" {
+		return true, "role " + who.Role
+	}
+	return needToKnow(doc, who)
+}
+
+func needToKnow(doc *Document, who *Identity) (bool, string) {
+	if doc.Owner == who.ID {
 		return true, "pemilik dokumen"
 	}
-	if levels[clearance] < levels[doc.Klasifikasi] {
-		return false, fmt.Sprintf("clearance %s < klasifikasi %s", clearance, doc.Klasifikasi)
+	if levels[who.Clearance] < levels[doc.Klasifikasi] {
+		return false, fmt.Sprintf("clearance %s < klasifikasi %s", who.Clearance, doc.Klasifikasi)
 	}
 	if doc.Klasifikasi == "SANGAT_RAHASIA" {
-		for _, r := range doc.Recipients {
-			if r == userName {
-				return true, "penerima disposisi"
-			}
+		if IsRecipient(doc, who) {
+			return true, "penerima disposisi"
 		}
 		return false, "SANGAT_RAHASIA: tidak ada di daftar disposisi (need to know)"
 	}
@@ -80,15 +119,16 @@ func CanAccess(doc *Document, userID, userName, clearance string) (bool, string)
 // MatchVersion mencocokkan hash dengan versi terkini dan versi-versi lama.
 func MatchVersion(doc *Document, hash string) *VerifyResult {
 	if hash == doc.Hash {
-		return &VerifyResult{true, doc.Version, doc.Version, fmt.Sprintf("ASLI - cocok dengan versi terbaru (v%d)", doc.Version)}
+		return &VerifyResult{Authentic: true, MatchedVersion: doc.Version, LatestVersion: doc.Version,
+			Message: fmt.Sprintf("ASLI - cocok dengan versi terbaru (v%d)", doc.Version)}
 	}
 	for i, h := range doc.History {
 		if h == hash {
-			return &VerifyResult{true, i + 1, doc.Version,
-				fmt.Sprintf("ASLI - cocok dengan v%d (bukan versi terbaru, terbaru v%d)", i+1, doc.Version)}
+			return &VerifyResult{Authentic: true, MatchedVersion: i + 1, LatestVersion: doc.Version,
+				Message: fmt.Sprintf("ASLI - cocok dengan v%d (bukan versi terbaru, terbaru v%d)", i+1, doc.Version)}
 		}
 	}
-	return &VerifyResult{false, 0, doc.Version, "TIDAK COCOK - dokumen telah diubah atau bukan dokumen resmi"}
+	return &VerifyResult{LatestVersion: doc.Version, Message: "TIDAK COCOK - dokumen telah diubah atau bukan dokumen resmi"}
 }
 
 func loadWithIdentity(ctx contractapi.TransactionContextInterface, docID string) (string, *Document, *Identity, error) {
@@ -133,7 +173,19 @@ func getDoc(ctx contractapi.TransactionContextInterface, docID string) (string, 
 	if err := json.Unmarshal(b, &d); err != nil {
 		return "", nil, err
 	}
+	normalize(&d)
 	return key, &d, nil
+}
+
+// normalize menyamakan panjang RecipientIDs dengan Recipients untuk dokumen
+// yang dibuat sebelum field RecipientIDs ada.
+func normalize(d *Document) {
+	for len(d.RecipientIDs) < len(d.Recipients) {
+		d.RecipientIDs = append(d.RecipientIDs, "")
+	}
+	if d.RecipientIDs == nil {
+		d.RecipientIDs = []string{}
+	}
 }
 
 func putDoc(ctx contractapi.TransactionContextInterface, key string, d *Document) error {
@@ -200,6 +252,10 @@ func queryLogs(ctx contractapi.TransactionContextInterface, attrs []string) ([]*
 		return nil, err
 	}
 	defer it.Close()
+	return collectLogs(it)
+}
+
+func collectLogs(it shim.StateQueryIteratorInterface) ([]*AuditLog, error) {
 	out := []*AuditLog{}
 	for it.HasNext() {
 		kv, err := it.Next()
@@ -213,4 +269,19 @@ func queryLogs(ctx contractapi.TransactionContextInterface, attrs []string) ([]*
 		out = append(out, &l)
 	}
 	return out, nil
+}
+
+func clampPage(n int32) int32 {
+	if n <= 0 || n > MaxPageSize {
+		return MaxPageSize
+	}
+	return n
+}
+
+// nextBookmark: halaman yang tidak penuh berarti data sudah habis.
+func nextBookmark(fetched, pageSize int32, bookmark string) string {
+	if fetched < pageSize {
+		return ""
+	}
+	return bookmark
 }

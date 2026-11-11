@@ -5,14 +5,16 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { AlertsService } from '../alerts/alerts.service';
 import { CryptoService } from '../crypto/crypto.service';
-import { DbService, DocRow } from '../db/db.service';
-import { FabricService, KLASIFIKASI } from '../fabric/fabric.service';
+import { KeyContext } from '../crypto/vault';
+import { DbService, DocRow, VersionRow } from '../db/db.service';
+import { CommitUnknownError, FabricService, KLASIFIKASI } from '../fabric/fabric.service';
 import { StorageService } from '../storage/storage.service';
-import { AppUser } from '../users/users.service';
+import { AppUser, UsersService } from '../users/users.service';
 import { VIEWABLE_MIME, WatermarkService } from '../watermark/watermark.service';
 
 // Bentuk data dari chaincode (lihat chaincode/sandichain/contract/model.go)
@@ -27,6 +29,7 @@ export interface ChainDoc {
   version: number;
   history: string[];
   recipients: string[];
+  recipientIds?: string[];
   revoked: boolean;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +46,7 @@ export interface ActionResult {
   document?: ChainDoc;
 }
 export interface VerifyResult {
+  denied: boolean;
   authentic: boolean;
   matchedVersion: number;
   latestVersion: number;
@@ -67,6 +71,10 @@ export interface UploadedFile {
   size: number;
 }
 
+const PAGE_SIZE = 200;
+/** Batas aman agar satu request tidak memindai ledger tanpa ujung. */
+const MAX_PAGES = 50;
+
 @Injectable()
 export class DocumentsService {
   private readonly log = new Logger(DocumentsService.name);
@@ -78,6 +86,7 @@ export class DocumentsService {
     private readonly db: DbService,
     private readonly wm: WatermarkService,
     private readonly alerts: AlertsService,
+    private readonly users: UsersService,
   ) {}
 
   // ------------------------------------------------------------- tulis
@@ -87,52 +96,59 @@ export class DocumentsService {
     const klas = (body.klasifikasi ?? '').toUpperCase();
     if (!KLASIFIKASI.includes(klas as never)) throw new BadRequestException('Klasifikasi tidak valid');
     if (!body.nomor?.trim() || !body.perihal?.trim()) throw new BadRequestException('Nomor dan perihal wajib diisi');
+    await this.wm.assertRenderable(file.buffer, file.mimetype);
 
     const channel = this.fabric.channelFor(klas);
     const docId = newDocId();
-    const sealed = await this.sealAndStore(docId, 1, file);
-
-    const doc = await this.db.insertDocument(
-      { doc_id: docId, channel, klasifikasi: klas, perihal: body.perihal.trim(), created_by: user.username },
-      sealed.row,
-      () => this.fabric.submit<ChainDoc>(user, channel, 'RegisterDocument', docId, body.nomor!.trim(), sealed.hash, klas),
+    const sealed = await this.sealAndStore({ docId, channel }, 1, file);
+    const perihal = body.perihal.trim();
+    await this.storeOrCleanup(sealed.row, () =>
+      this.db.insertPending({ doc_id: docId, channel, klasifikasi: klas, perihal, created_by: user.username }, sealed.row),
     );
-    return { ...doc, perihal: body.perihal.trim(), channel };
+
+    const r = await this.commitOrDiscard(sealed.row, () =>
+      this.fabric.submit<ActionResult>(user, channel, 'RegisterDocument', docId, body.nomor!.trim(), sealed.hash, klas),
+    );
+    if (!r.ok || !r.document) throw new ForbiddenException(`Ditolak dan tercatat di ledger: ${r.reason}`);
+    return { ...publicDoc(r.document), perihal, channel };
   }
 
   async addVersion(user: AppUser, docId: string, file: UploadedFile | undefined) {
     this.assertFile(file);
     const row = await this.row(docId);
-    const current = await this.fabric.evaluate<ChainDoc>(user, row.channel, 'GetDocument', docId);
-    const sealed = await this.sealAndStore(docId, current.version + 1, file);
-
-    // Ditolak chaincode => tetap tercatat di ledger, DB di-rollback.
-    let res: ActionResult | undefined;
-    try {
-      res = await this.db.insertVersion(sealed.row, async () => {
-        const r = await this.fabric.submit<ActionResult>(user, row.channel, 'AddVersion', docId, sealed.hash);
-        if (!r.ok) throw new DeniedOnChain(r);
-        return r;
-      });
-    } catch (e) {
-      if (e instanceof DeniedOnChain) throw new ForbiddenException(e.result.reason);
-      throw e;
+    if (await this.db.hasPending(docId)) {
+      throw new ConflictException('Revisi sebelumnya masih menunggu konfirmasi ledger, coba lagi sebentar');
     }
-    return res.document;
+    await this.wm.assertRenderable(file.buffer, file.mimetype);
+    // Nomor versi dari DB, bukan GetDocument: GetDocument menolak non-pemilik
+    // berclearance rendah SEBELUM chaincode sempat mencatat percobaan revisinya.
+    const sealed = await this.sealAndStore({ docId, channel: row.channel }, await this.db.nextVersion(docId), file);
+    await this.storeOrCleanup(sealed.row, () => this.db.insertPending(null, sealed.row));
+
+    const r = await this.commitOrDiscard(sealed.row, () =>
+      this.fabric.submit<ActionResult>(user, row.channel, 'AddVersion', docId, sealed.hash),
+    );
+    if (!r.ok || !r.document) throw new ForbiddenException(`Ditolak dan tercatat di ledger: ${r.reason}`);
+    return publicDoc(r.document);
   }
 
   async disposition(user: AppUser, docId: string, recipient: string, catatan: string) {
     const row = await this.row(docId);
-    const r = await this.fabric.submit<ActionResult>(user, row.channel, 'AddDisposition', docId, recipient ?? '', catatan ?? '');
-    if (!r.ok) throw new ForbiddenException(r.reason);
-    return r.document;
+    // Penerima diidentifikasi MSP + CN supaya CN yang sama di org lain tidak ikut mendapat akses.
+    const target = this.users.find((recipient ?? '').trim());
+    if (!target || target.service) throw new BadRequestException('Penerima disposisi bukan personel terdaftar');
+    const r = await this.fabric.submit<ActionResult>(
+      user, row.channel, 'AddDisposition', docId, target.username, target.mspId, catatan ?? '',
+    );
+    if (!r.ok || !r.document) throw new ForbiddenException(r.reason);
+    return publicDoc(r.document);
   }
 
   async revoke(user: AppUser, docId: string, alasan: string) {
     const row = await this.row(docId);
     const r = await this.fabric.submit<ActionResult>(user, row.channel, 'RevokeDocument', docId, alasan ?? '');
-    if (!r.ok) throw new ForbiddenException(r.reason);
-    return r.document;
+    if (!r.ok || !r.document) throw new ForbiddenException(r.reason);
+    return publicDoc(r.document);
   }
 
   // ------------------------------------------------------------- baca
@@ -150,6 +166,7 @@ export class DocumentsService {
     if (!access.granted) throw new ForbiddenException(`Akses ditolak dan tercatat di ledger: ${access.reason}`);
 
     const v = await this.db.getVersionByHash(docId, access.hash);
+    if (v?.status === 'pending') await this.db.markCommitted(docId, v.version); // hash ada di ledger => sudah ter-commit
     if (!v) {
       await this.integrityAlert(user, docId, txId, 'metadata versi yang cocok dengan hash ledger tidak ditemukan');
       throw new ConflictException('Integritas dokumen gagal: data di storage tidak sesuai ledger');
@@ -158,8 +175,13 @@ export class DocumentsService {
     let plain: Buffer;
     try {
       const ciphertext = await this.storage.get(v.object_key);
-      plain = await this.crypto.open({ ciphertext, iv: v.iv, authTag: v.auth_tag, wrappedDek: v.wrapped_dek });
+      plain = await this.crypto.open(
+        { ciphertext, iv: v.iv, authTag: v.auth_tag, wrappedDek: v.wrapped_dek },
+        { docId, channel: row.channel, txId },
+      );
     } catch (e) {
+      // KeyGuard menolak / tidak tersedia: bukan indikasi storage dimanipulasi.
+      if (e instanceof ForbiddenException || e instanceof ServiceUnavailableException) throw e;
       await this.integrityAlert(user, docId, txId, `dekripsi gagal (ciphertext/tag diubah?): ${(e as Error).message}`);
       throw new ConflictException('Integritas dokumen gagal: file terenkripsi rusak atau dimanipulasi');
     }
@@ -186,6 +208,7 @@ export class DocumentsService {
     const row = await this.row(docId);
     const hash = CryptoService.sha256(file.buffer);
     const r = await this.fabric.submit<VerifyResult>(user, row.channel, 'VerifyDocument', docId, hash);
+    if (r.denied) throw new ForbiddenException(`Verifikasi ditolak dan tercatat di ledger: ${r.message}`);
     return { ...r, hash };
   }
 
@@ -193,8 +216,7 @@ export class DocumentsService {
     const docs: (ChainDoc & { channel: string })[] = [];
     for (const ch of this.fabric.allChannels()) {
       try {
-        const list = await this.fabric.evaluate<ChainDoc[]>(user, ch, 'ListDocuments');
-        (list ?? []).forEach((d) => docs.push({ ...d, channel: ch }));
+        for await (const d of this.pages<ChainDoc>(user, ch, 'ListDocumentsPage', 'documents')) docs.push({ ...d, channel: ch });
       } catch (e) {
         this.log.debug(`ListDocuments ${ch} dilewati untuk ${user.username}: ${(e as Error).message}`);
       }
@@ -231,13 +253,26 @@ export class DocumentsService {
   async allAudit(user: AppUser) {
     const out: (AuditLog & { channel: string })[] = [];
     for (const ch of this.fabric.allChannels()) {
-      const logs = await this.fabric.evaluate<AuditLog[]>(user, ch, 'GetAllAuditLogs');
-      (logs ?? []).forEach((l) => out.push({ ...l, channel: ch }));
+      for await (const l of this.pages<AuditLog>(user, ch, 'GetAllAuditLogsPage', 'logs')) out.push({ ...l, channel: ch });
     }
     return out.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
   }
 
   // ------------------------------------------------------------- helper
+
+  /** Iterasi query chaincode berpaginasi (bookmark) sampai habis. */
+  private async *pages<T>(user: AppUser, channel: string, fn: string, field: string): AsyncGenerator<T> {
+    let bookmark = '';
+    for (let i = 0; i < MAX_PAGES; i++) {
+      const page = await this.fabric.evaluate<Record<string, unknown> & { bookmark: string }>(
+        user, channel, fn, String(PAGE_SIZE), bookmark,
+      );
+      yield* ((page?.[field] as T[]) ?? []);
+      if (!page?.bookmark) return;
+      bookmark = page.bookmark;
+    }
+    this.log.warn(`${fn} di ${channel} berhenti setelah ${MAX_PAGES} halaman`);
+  }
 
   private async row(docId: string): Promise<DocRow> {
     const r = await this.db.getDocument(docId);
@@ -252,9 +287,45 @@ export class DocumentsService {
     }
   }
 
-  private async sealAndStore(docId: string, version: number, file: UploadedFile) {
+  /** Kalau penyimpanan metadata gagal, hapus objek yang sudah terunggah. */
+  private async storeOrCleanup(v: VersionRow, fn: () => Promise<void>) {
+    try {
+      await fn();
+    } catch (e) {
+      await this.storage.remove(v.object_key).catch(() => undefined);
+      if ((e as { code?: string }).code === '23505') throw new ConflictException('Versi ini sedang diproses, coba lagi');
+      throw e;
+    }
+  }
+
+  /**
+   * Jalankan transaksi Fabric untuk versi yang sudah tersimpan sebagai pending.
+   *  - sukses               => tandai committed
+   *  - ditolak / pasti gagal => hapus metadata + objek
+   *  - status tidak pasti    => biarkan pending, ReconcileService yang memutuskan
+   */
+  private async commitOrDiscard(v: VersionRow, submit: () => Promise<ActionResult>): Promise<ActionResult> {
+    let r: ActionResult;
+    try {
+      r = await submit();
+    } catch (e) {
+      if (!(e instanceof CommitUnknownError)) await this.discard(v);
+      throw e;
+    }
+    if (r.ok) await this.db.markCommitted(v.doc_id, v.version);
+    else await this.discard(v);
+    return r;
+  }
+
+  async discard(v: Pick<VersionRow, 'doc_id' | 'version' | 'object_key'>) {
+    await this.db.discardPending(v.doc_id, v.version);
+    await this.storage.remove(v.object_key).catch((e) => this.log.warn(`Gagal menghapus ${v.object_key}: ${(e as Error).message}`));
+  }
+
+  private async sealAndStore(ctx: KeyContext, version: number, file: UploadedFile) {
+    const { docId } = ctx;
     const hash = CryptoService.sha256(file.buffer);
-    const sealed = await this.crypto.seal(file.buffer);
+    const sealed = await this.crypto.seal(file.buffer, ctx);
     const objectKey = `${docId}/v${version}-${crypto.randomUUID()}.enc`;
     await this.storage.put(objectKey, sealed.ciphertext);
     return {
@@ -292,9 +363,9 @@ class DeniedOnChain extends Error {
 }
 
 /** ID sertifikat (x509::CN=...::...) tidak perlu dikirim ke frontend. */
-function publicDoc(d: ChainDoc) {
+export function publicDoc(d: ChainDoc) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { owner, ...rest } = d;
+  const { owner, recipientIds, ...rest } = d;
   return rest;
 }
 

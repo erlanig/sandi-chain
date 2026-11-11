@@ -6,12 +6,15 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "start:dev": "ts-node --transpile-only src/main.ts",
+    "start:keyguard": "node dist/keyguard/main.js",
+    "keyguard:dev": "ts-node --transpile-only src/keyguard/main.ts",
     "enroll": "node scripts/enroll-users.mjs",
     "test": "TS_NODE_TRANSPILE_ONLY=1 node -r ts-node/register --test test/*.test.ts"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.7",
     "@hyperledger/fabric-gateway": "^1.13.0",
+    "@napi-rs/canvas": "^1.1.0",
     "@nestjs/common": "^11.2.8",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.2.8",
@@ -22,11 +25,13 @@
     "helmet": "^8.3.0",
     "minio": "^8.0.7",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.5.438",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
+    "@hyperledger/fabric-protos": "^0.3.7",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",

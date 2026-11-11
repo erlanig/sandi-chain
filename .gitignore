@@ -6,7 +6,9 @@ next-env.d.ts
 
 # rahasia & data runtime
 .env
+backend/keyguard.env
 backend/wallet/
+backend/cards/
 backend/config/users.json
 backend/logs/
 backend/demo-output/

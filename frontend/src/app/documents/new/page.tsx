@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useAuth } from '@/components/auth';
 import { FilePick, Shell, Stamp } from '@/components/shell';
 import { Doc, KLASIFIKASI, klasLabel, post } from '@/lib/api';
+import { expectAction, fileHash } from '@/lib/signer';
 
 const LEVEL: Record<string, number> = { BIASA: 1, TERBATAS: 2, RAHASIA: 3, SANGAT_RAHASIA: 4 };
 
@@ -39,6 +40,7 @@ function NewDocument() {
     fd.append('perihal', perihal);
     fd.append('klasifikasi', klas);
     try {
+      expectAction('RegisterDocument', [null, nomor.trim(), await fileHash(file), klas]);
       const doc = await post<Doc>('/documents', fd);
       router.push(`/documents/${doc.docId}`);
     } catch (err) {

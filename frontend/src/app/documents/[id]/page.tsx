@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/components/auth';
 import { FilePick, Shell, Stamp } from '@/components/shell';
 import { ACTION_LABEL, api, AuditLog, DocDetail, fmtDate, post, shortHash, VerifyResult } from '@/lib/api';
+import { expectAction, fileHash } from '@/lib/signer';
 
 export default function DocumentDetailPage() {
   return (
@@ -189,6 +190,7 @@ function VerifyBox({ docId }: { docId: string }) {
     const fd = new FormData();
     fd.append('file', file);
     try {
+      expectAction('VerifyDocument', [docId, await fileHash(file)]);
       setRes(await post<VerifyResult>(`/documents/${docId}/verify`, fd));
     } catch (e) {
       setError((e as Error).message);
@@ -234,6 +236,7 @@ function DispositionBox({ docId, sr, onDone }: { docId: string; sr: boolean; onD
   async function send() {
     setMsg('');
     try {
+      expectAction('AddDisposition', [docId, recipient, null, catatan]);
       await post(`/documents/${docId}/disposition`, { recipient, catatan });
       setMsg('Disposisi tercatat di ledger.');
       setRecipient('');
@@ -277,6 +280,7 @@ function VersionBox({ docId, onDone }: { docId: string; onDone: () => void }) {
     const fd = new FormData();
     fd.append('file', file);
     try {
+      expectAction('AddVersion', [docId, await fileHash(file)]);
       await post(`/documents/${docId}/versions`, fd);
       setFile(null);
       setMsg('Versi baru tercatat. Hash versi lama tetap tersimpan di ledger.');
@@ -305,6 +309,7 @@ function RevokeBox({ docId, onDone }: { docId: string; onDone: () => void }) {
   const [confirm, setConfirm] = useState(false);
 
   async function send() {
+    expectAction('RevokeDocument', [docId, alasan]);
     await post(`/documents/${docId}/revoke`, { alasan });
     onDone();
   }

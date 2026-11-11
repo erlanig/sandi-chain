@@ -3,6 +3,7 @@
 // Prasyarat: jaringan Fabric, docker compose, dan backend sudah jalan.
 //   node scripts/demo.mjs [http://localhost:4000]
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +35,39 @@ async function login(u) {
   });
   if (!r.ok) throw new Error(`login ${u}: ${r.status} ${await r.text()}`);
   sessions[u] = r.headers.get('set-cookie').split(';')[0];
+}
+// SIGNING_MODE=client: skrip ini berperan sebagai perangkat tiap personel. Kartu dibuka
+// dengan PIN lalu setiap permintaan tanda tangan dari backend dijawab. (Portal web
+// memeriksa isi pesan dulu, lihat frontend/src/lib/sign-policy.ts; di sini langsung
+// ditandatangani karena skrip inilah yang memulai semua aksi.)
+function openCard(u) {
+  const file = path.join(root, env.CARDS_DIR ?? './cards', `${u}.card.json`);
+  if (!fs.existsSync(file)) throw new Error(`Kartu ${file} tidak ada. Jalankan: SIGNING_MODE=client npm run enroll`);
+  const c = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const seed = JSON.parse(fs.readFileSync(path.join(root, 'config/users.seed.json'), 'utf8'));
+  const kek = crypto.pbkdf2Sync(seed.defaultPin ?? '123456', Buffer.from(c.kdf.salt, 'base64'), c.kdf.iterations, 32, 'sha256');
+  const ct = Buffer.from(c.ct, 'base64');
+  const d = crypto.createDecipheriv('aes-256-gcm', kek, Buffer.from(c.iv, 'base64'));
+  d.setAuthTag(ct.subarray(ct.length - 16));
+  const pkcs8 = Buffer.concat([d.update(ct.subarray(0, ct.length - 16)), d.final()]);
+  return crypto.createPrivateKey({ key: pkcs8, format: 'der', type: 'pkcs8' });
+}
+async function startDevice(u) {
+  const info = await call(u, 'GET', '/sign/info');
+  if (info.data.mode !== 'client') return false;
+  const key = openCard(u);
+  const cookie = sessions[u];
+  (async () => {
+    for (;;) {
+      const r = await fetch(`${API}/sign/next`, { headers: { Cookie: cookie } }).catch(() => null);
+      if (!r || r.status === 401) return; // backend mati / sesi berakhir
+      if (r.status !== 200) continue;
+      const { id, message } = await r.json();
+      const signature = crypto.sign('sha256', Buffer.from(message, 'base64'), { key, dsaEncoding: 'ieee-p1363' }).toString('base64');
+      await fetch(`${API}/sign/${id}`, { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ signature }) });
+    }
+  })();
+  return true;
 }
 async function call(u, method, p, body) {
   const headers = { Cookie: sessions[u] };
@@ -68,6 +102,8 @@ const users = ['letkol.arya', 'mayor.dewi', 'kapten.andi', 'serka.budi', 'audito
 step('Login 5 personel');
 for (const u of users) await login(u);
 ok(true, users.join(', '));
+const devices = await Promise.all(users.map(startDevice));
+console.log(`  mode tanda tangan: ${devices[0] ? 'client (kunci di perangkat, kartu dari cards/)' : 'server (kunci di wallet backend)'}`);
 
 const renops = await makePdf([
   'RENCANA OPERASI (FIKTIF - DEMO)', 'Nomor: R/001/XI/2026', 'Kepada: Pasi Ops', '', 'Isi rencana operasi untuk demo SANDI-Chain.',
@@ -88,11 +124,22 @@ ok(!listBudi.data.some((d) => d.docId === A || d.docId === B), `ListDocuments di
 const vBudi = await call('serka.budi', 'GET', `/documents/${B}/view`);
 ok(vBudi.status === 403, `Staf TU coba buka dokumen RAHASIA -> ${vBudi.status} ${vBudi.data.message}`);
 
+step('Penolakan selain "buka dokumen" juga tercatat');
+const regBudi = await call('serka.budi', 'POST', '/documents', form(laporan, 'coba.pdf', { nomor: 'X/001', perihal: 'Percobaan', klasifikasi: 'RAHASIA' }));
+ok(regBudi.status === 403, `Staf TU mendaftarkan dokumen RAHASIA -> ${regBudi.status} ${regBudi.data.message}`);
+const verBudi = await call('serka.budi', 'POST', `/documents/${B}/verify`, form(laporan, 'bocoran.pdf'));
+ok(verBudi.status === 403 && verBudi.data.authentic === undefined, `Staf TU memverifikasi salinan dokumen RAHASIA -> ${verBudi.status} (hasil tidak dibocorkan)`);
+
 step('Need-to-know: SANGAT RAHASIA hanya untuk penerima disposisi');
+const listAndi1 = await call('kapten.andi', 'GET', '/documents');
+const metaAndi1 = await call('kapten.andi', 'GET', `/documents/${A}`);
+ok(!listAndi1.data.some((d) => d.docId === A) && metaAndi1.status === 403, `Pasi Ops (clearance SR, belum disposisi) tidak melihat metadata dokumen SR -> ${metaAndi1.status}`);
 const vAndi1 = await call('kapten.andi', 'GET', `/documents/${A}/view`);
 ok(vAndi1.status === 403, `Pasi Ops (clearance SR, belum disposisi) -> ${vAndi1.status}`);
 const disp = await call('letkol.arya', 'POST', `/documents/${A}/disposition`, { recipient: 'kapten.andi', catatan: 'Pelajari dan siapkan paparan' });
 ok(disp.status === 200 && disp.data.recipients.includes('kapten.andi'), 'Danyon mendisposisikan ke kapten.andi');
+const listAndi2 = await call('kapten.andi', 'GET', '/documents');
+ok(listAndi2.data.some((d) => d.docId === A), 'Setelah disposisi, dokumen SR muncul di daftar Pasi Ops');
 const vAndi2 = await call('kapten.andi', 'GET', `/documents/${A}/view`);
 ok(vAndi2.status === 200 && vAndi2.headers.get('content-type') === 'application/pdf', `Pasi Ops sekarang bisa membuka -> ${vAndi2.status}, tx ${vAndi2.headers.get('x-access-tx')?.slice(0, 12)}`);
 if (vAndi2.status === 200) {
@@ -138,7 +185,7 @@ step('Unit pengamanan menerima alert & jejak lengkap');
 await sleep(4000);
 const alerts = await call('auditor.pam', 'GET', '/alerts');
 const types = alerts.data.reduce((m, x) => ((m[x.type] = (m[x.type] ?? 0) + 1), m), {});
-ok(types.UnauthorizedAccess >= 4, `Alert akses tidak sah: ${types.UnauthorizedAccess ?? 0}`);
+ok(types.UnauthorizedAccess >= 6, `Alert akses tidak sah: ${types.UnauthorizedAccess ?? 0}`);
 ok(types.DocumentTampered >= 1, `Alert dokumen palsu: ${types.DocumentTampered ?? 0}`);
 ok(types.StorageIntegrity >= 1, `Alert manipulasi storage: ${types.StorageIntegrity ?? 0}`);
 const trail = await call('auditor.pam', 'GET', `/documents/${A}/audit`);
@@ -149,6 +196,12 @@ const hist = await call('auditor.pam', 'GET', `/documents/${A}/history`);
 ok(Array.isArray(hist.data) && hist.data.length >= 3, `History key di ledger: ${hist.data.length} perubahan state`);
 const noAudit = await call('serka.budi', 'GET', '/audit');
 ok(noAudit.status === 403, `Staf TU membuka dashboard audit -> ${noAudit.status}`);
+
+step('Logout mencabut sesi di server');
+const oldCookie = sessions['serka.budi'];
+await call('serka.budi', 'POST', '/auth/logout');
+const reuse = await fetch(`${API}/documents`, { headers: { Cookie: oldCookie } });
+ok(reuse.status === 401, `Cookie lama dipakai setelah logout -> ${reuse.status}`);
 
 console.log(`\n${pass} lulus, ${fail} gagal. PDF berwatermark: ${outDir}`);
 process.exit(fail ? 1 : 0);

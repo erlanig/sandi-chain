@@ -1,12 +1,14 @@
 {
   "_catatan": "Data personel FIKTIF untuk demo. Dipakai scripts/enroll-users.mjs untuk register ke Fabric CA (atribut masuk ke sertifikat) dan membuat config/users.json.",
   "defaultPassword": "sandi123",
+  "defaultPin": "123456",
   "users": [
     { "username": "letkol.arya",  "nama": "Letkol Inf Arya Wiratama", "nrp": "11000001", "jabatan": "Danyon",        "clearance": "SANGAT_RAHASIA", "role": "user",    "org": "org1" },
     { "username": "mayor.dewi",   "nama": "Mayor Inf Dewi Lestari",   "nrp": "11000002", "jabatan": "Kasi Intel",    "clearance": "RAHASIA",        "role": "user",    "org": "org1" },
     { "username": "kapten.andi",  "nama": "Kapten Inf Andi Saputra",  "nrp": "11000003", "jabatan": "Pasi Ops",      "clearance": "SANGAT_RAHASIA", "role": "user",    "org": "org2" },
     { "username": "serka.budi",   "nama": "Serka Budi Santoso",       "nrp": "21000004", "jabatan": "Staf TU",       "clearance": "TERBATAS",       "role": "user",    "org": "org2" },
     { "username": "auditor.pam",  "nama": "Kapten Cpm Rina Hapsari",  "nrp": "11000005", "jabatan": "Unit Pam",      "clearance": "RAHASIA",        "role": "auditor", "org": "org1" },
+    { "username": "keyguard",     "nama": "SANDI KeyGuard Service",   "nrp": "-",        "jabatan": "Service",       "clearance": "BIASA",          "role": "keyguard", "org": "org1", "service": true },
     { "username": "sentinel",     "nama": "SANDI Sentinel Service",   "nrp": "-",        "jabatan": "Service",       "clearance": "BIASA",          "role": "auditor", "org": "org1", "service": true }
   ]
 }

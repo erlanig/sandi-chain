@@ -88,6 +88,26 @@ npm run enroll
 npm run start:dev
 ```
 
+### Opsional (disarankan): KeyGuard
+
+KeyGuard memisahkan izin dekripsi dari backend: kunci dokumen hanya dilepas kalau ada `ACCESS_GRANTED` di ledger. Tanpa langkah ini aplikasi tetap jalan (backend mendekripsi langsung dengan token root Vault), tapi hanya cocok untuk development.
+
+```bash
+# Di WSL2, dari folder sandi-chain (butuh curl, jq, openssl)
+./scripts/vault-setup.sh
+```
+
+Script mencetak dua blok. Salin blok pertama ke `backend/.env` (ganti `VAULT_TOKEN` lama) dan blok kedua ke file baru `backend/keyguard.env`. Lalu restart backend dan jalankan KeyGuard di terminal baru:
+
+```powershell
+cd c:\Software\sandi-chain\backend
+npm run keyguard:dev
+```
+
+KeyGuard berjalan di: http://127.0.0.1:4100/keyguard
+
+Catatan: Vault berjalan dalam dev mode (in-memory). Setiap kali container Vault di-restart, jalankan ulang `vault-setup.sh` dan perbarui kedua file env.
+
 Backend akan berjalan di: http://localhost:4000
 
 ## Langkah 6: Setup Frontend (Terminal Baru)
@@ -124,6 +144,35 @@ Frontend akan berjalan di: http://localhost:3000
 ### Error di network-up.sh
 - Pastikan menjalankan di WSL2 (bukan PowerShell)
 - Cek apakah Docker accessible dari WSL2: `docker ps`
+
+### Opsional (disarankan): tanda tangan di perangkat
+
+Secara default kunci privat tiap personel disimpan di server (`backend/wallet/`). Untuk memindahkannya ke perangkat personel:
+
+1. Di `backend/.env` set `SIGNING_MODE=client`.
+2. Jalankan ulang `npm run enroll`. Kartu identitas tiap personel dibuat di `backend/cards/` (PIN default `123456`), dan kunci mereka tidak lagi disimpan di `wallet/`.
+3. Restart backend.
+4. Saat login pertama di sebuah browser, portal meminta file kartu (`<username>.card.json`) dan PIN. Cukup sekali per browser.
+
+Portal harus dibuka lewat `http://localhost:3000` atau HTTPS, karena browser hanya mengizinkan WebCrypto di sana.
+
+### Layar "Kartu identitas" muncul lagi setelah enroll ulang
+`npm run enroll` menerbitkan sertifikat baru, jadi kartu lama tidak cocok lagi. Impor kartu yang baru dari `backend/cards/`.
+
+### Error "Perangkat tidak menandatangani"
+Backend menunggu tanda tangan dari browser user tersebut. Pastikan portal masih terbuka dan kartu sudah diimpor. Untuk `demo.mjs`, pastikan `backend/cards/` berisi kartu hasil enroll terakhir.
+
+### Error "Identitas Fabric keyguard tidak ada di wallet"
+Jalankan ulang `npm run enroll` (identitas layanan `keyguard` ditambahkan belakangan).
+
+### Dokumen gagal dibuka dengan pesan "KeyGuard tidak dapat dihubungi"
+`KEYGUARD_URL` terisi di `backend/.env` tetapi KeyGuard belum dijalankan. Jalankan `npm run keyguard:dev`, atau kosongkan `KEYGUARD_URL` untuk mode development.
+
+### Jaringan Fabric sudah ada dari versi sebelumnya
+Chaincode berubah (fungsi dan argumen baru). Upgrade tanpa menghapus ledger, lalu restart backend:
+```bash
+./scripts/cc-upgrade.sh 1.1 2   # versi, sequence (naik 1 tiap upgrade)
+```
 
 ### Error saat npm run enroll
 - Pastikan network Fabric sudah running (langkah 4 selesai)

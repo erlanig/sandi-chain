@@ -6,13 +6,14 @@
 name: sandi-chain
 
 services:
+  # Port hanya dibuka ke localhost: kredensial di bawah adalah default demo.
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: sandi
       POSTGRES_PASSWORD: sandi123
       POSTGRES_DB: sandichain
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sandi -d sandichain"]
@@ -24,7 +25,7 @@ services:
   s3:
     image: chrislusf/seaweedfs:latest
     command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256
-    ports: ["8333:8333"]
+    ports: ["127.0.0.1:8333:8333"]
     volumes:
       - s3data:/data
       - ./infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
@@ -37,7 +38,7 @@ services:
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: root
       VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
-    ports: ["8200:8200"]
+    ports: ["127.0.0.1:8200:8200"]
 
   # ---------------------------------------------------------------- aplikasi
   # Prasyarat: scripts/network-up.sh dan `cd backend && npm run enroll` sudah dijalankan.
@@ -54,6 +55,7 @@ services:
       DATABASE_URL: postgres://sandi:sandi123@postgres:5432/sandichain
       S3_ENDPOINT: s3
       VAULT_ADDR: http://vault:8200
+      KEYGUARD_URL: http://keyguard:4100
     volumes:
       - ./fabric-samples/test-network/organizations:/fabric/test-network/organizations:ro
       - ./backend/wallet:/app/wallet:ro
@@ -62,6 +64,28 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       s3: { condition: service_started }
+      vault: { condition: service_started }
+    networks: [default, fabric]
+
+  # Satu-satunya pemegang izin decrypt di Vault. Tidak dipublikasikan ke host.
+  keyguard:
+    profiles: [app]
+    build: ./backend
+    command: ["node", "dist/keyguard/main.js"]
+    env_file: [./backend/.env, ./backend/keyguard.env]
+    environment:
+      KEYGUARD_HOST: 0.0.0.0
+      FABRIC_TEST_NETWORK: /fabric/test-network
+      PEER_ORG1_ENDPOINT: peer0.org1.example.com:7051
+      PEER_ORG2_ENDPOINT: peer0.org2.example.com:9051
+      WALLET_DIR: /app/wallet
+      USERS_FILE: /app/config/users.json
+      VAULT_ADDR: http://vault:8200
+    volumes:
+      - ./fabric-samples/test-network/organizations:/fabric/test-network/organizations:ro
+      - ./backend/wallet/keyguard:/app/wallet/keyguard:ro   # hanya identitas KeyGuard
+      - ./backend/config:/app/config:ro
+    depends_on:
       vault: { condition: service_started }
     networks: [default, fabric]
 
