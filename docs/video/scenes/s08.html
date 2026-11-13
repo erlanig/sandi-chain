@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>08 Kelayakan</title>
+<link rel="stylesheet" href="../film/fonts.css"><link rel="stylesheet" href="../film/film.css">
+<script src="../film/lib.js"></script>
+<style>
+  .dia { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 960px 150px; }
+  .nb { position: absolute; border: 2px solid var(--hair2); border-radius: 16px; background: var(--layer); padding: 24px 28px; }
+  .nb .t { font: 600 36px/1.15 var(--sans); white-space: nowrap; }
+  .nb .s { margin-top: 12px; font: 500 28px/1 var(--mono); color: var(--khaki); white-space: nowrap; }
+  .bl { position: absolute; font: 500 28px/1 var(--mono); color: var(--khaki); letter-spacing: .1em; padding: 0 14px; background: var(--bg); white-space: nowrap; }
+  .out { position: absolute; font: 500 30px/1.6 var(--mono); color: var(--dim); white-space: nowrap; }
+  .prodl { position: absolute; left: 0; width: 1920px; text-align: center; font: 500 28px/1 var(--mono); color: var(--dim); letter-spacing: .14em; }
+  .pchip { position: absolute; height: 72px; border-radius: 999px; border: 2px solid var(--khaki); display: flex; align-items: center; justify-content: center; font: 600 34px/1 var(--sans); white-space: nowrap; background: var(--layer); }
+</style></head><body><script>
+F.boot(8, (st, F) => {
+  const { el, svg, words, reveal, show, draw, prog, E, lerp, blink, FR, clamp, css } = F;
+  const SC = F.scene, ph = (id) => SC.sentences.find((s) => s.id === id).phr;
+  const P21 = ph('S21'), P22 = ph('S22');
+  const dia = el('div', 'dia', st);
+  const g = svg('svg', { width: 1920, height: 1080, class: 'abs' }, dia); g.style.left = g.style.top = 0;
+  const bnd = svg('rect', { x: 140, y: 200, width: 1360, height: 640, rx: 22, fill: 'none', stroke: 'var(--khaki)', 'stroke-width': 3 }, g);
+  const bndD = svg('rect', { x: 140, y: 200, width: 1360, height: 640, rx: 22, fill: 'none', stroke: 'var(--khaki)', 'stroke-width': 3, 'stroke-dasharray': '14 12' }, g);
+  const bl = el('div', 'bl', dia, 'JARINGAN SENDIRI'); css(bl, { left: '176px', top: '186px' });
+  const box = (x, y, w, h, t, s) => { const b = el('div', 'nb', dia, `<div class="t">${t}</div><div class="s">${s}</div>`); css(b, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' }); return b; };
+  const N = [
+    box(200, 266, 420, 200, 'Mabesad / Kodam', 'Org1 · peer'),
+    box(200, 574, 420, 200, 'Satuan', 'Org2 · peer'),
+    box(720, 420, 320, 200, 'Orderer', 'Raft'),
+    box(1120, 250, 330, 160, 'Vault', 'kunci dokumen'),
+    box(1120, 440, 330, 160, 'KeyGuard', 'pelepas kunci'),
+    box(1120, 630, 330, 160, 'Penyimpanan', 'terenkripsi'),
+  ];
+  const L = [
+    'M620 366 C 680 366, 660 470, 720 470', 'M620 674 C 680 674, 660 570, 720 570',
+    'M1040 520 C 1080 520, 1080 330, 1120 330', 'M1040 520 H1120', 'M1040 520 C 1080 520, 1080 710, 1120 710',
+  ].map((d) => svg('path', { d, stroke: 'var(--hair2)', 'stroke-width': 3, fill: 'none' }, g));
+  const out = el('div', 'out', dia, 'tanpa cloud<br>tanpa internet'); css(out, { left: '1540px', top: '470px' });
+  // jalan ke produksi
+  const prodl = el('div', 'prodl', st, 'JALAN KE PRODUKSI'); css(prodl, { top: '716px' });
+  const chips = [['Kunci di perangkat', 290], ['Vault produksi', 750], ['LDAP · SIEM', 1210]].map(([t, x]) => { const c = el('div', 'pchip', st, t); css(c, { left: x + 'px', top: '770px', width: '420px' }); return c; });
+  const morph = el('div', 'abs', st); css(morph, { border: '3px solid var(--khaki)', borderRadius: '22px' });
+  const tChip = [P22[1], P22[2], P22[5]];
+  F.cue('lock', P21[2] + 0.2); tChip.forEach((c) => F.cue('tick', c));
+
+  return (t) => {
+    // garis penutup adegan 7 -> batas jaringan
+    const mk = E.ioc(prog(t, 0.0, 0.8));
+    css(morph, { left: lerp(120, 140, mk) + 'px', top: lerp(736, 200, mk) + 'px', width: lerp(680, 1360, mk) + 'px', height: lerp(4, 640, mk) + 'px', opacity: t < 0.85 ? 1 : 0, borderRadius: lerp(2, 22, mk) + 'px' });
+    bndD.style.opacity = t >= 0.8 ? 1 - prog(t, P21[2], 0.4) : 0;
+    bnd.style.opacity = t >= 0.8 ? prog(t, P21[2], 0.4) : 0;
+    show(bl, t, P21[0], { dur: 0.4 });
+    N.forEach((n, i) => show(n, t, P21[0] + 0.5 + i * 5 * FR * 2, { dur: 0.5, scale: 0.06, ease: E.spring }));
+    L.forEach((l, i) => draw(l, t, P21[0] + 2.0 + i * 5 * FR, 0.6, E.ioc));
+    show(out, t, P21[1], { dur: 0.45, dx: 16 });
+    // menyusut untuk memberi ruang jalan ke produksi
+    const sk = E.ioc(prog(t, P22[0], 0.9));
+    dia.style.transform = `scale(${lerp(1, 0.8, sk)}) translateY(${lerp(0, -40, sk)}px)`;
+    show(prodl, t, P22[0] + 0.6, { dur: 0.45, dy: 12 });
+    chips.forEach((c, i) => show(c, t, tChip[i], { dur: 0.45, scale: 0.08, ease: E.spring }));
+  };
+});
+</script></body></html>

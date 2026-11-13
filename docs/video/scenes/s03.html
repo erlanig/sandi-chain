@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>03 Perkenalan</title>
+<link rel="stylesheet" href="../film/fonts.css"><link rel="stylesheet" href="../film/film.css">
+<script src="../film/lib.js"></script>
+<style>
+  .logo { left: 540px; top: 110px; width: 840px; height: 350px; }
+  .name { left: 0; width: 1920px; top: 504px; text-align: center; font-size: 124px; letter-spacing: .14em; padding-left: .14em; }
+  .tag { left: 0; width: 1920px; top: 664px; text-align: center; font: 500 38px/1.2 var(--sans); color: var(--ink); }
+  .team { left: 0; width: 1920px; top: 846px; text-align: center; font: 500 32px/1 var(--mono); letter-spacing: .32em; color: var(--dim); }
+  .cur { width: 30px; height: 150px; background: var(--khaki); }
+</style></head><body><script>
+F.boot(3, (st, F) => {
+  const { el, svg, words, reveal, show, draw, prog, E, lerp, blink, S, FR, clamp } = F;
+  const L = svg('svg', { viewBox: '0 0 240 100', class: 'abs logo' }, st);
+  L.innerHTML = `
+    <mask id="m" maskUnits="userSpaceOnUse" x="-20" y="-20" width="280" height="140">
+      <rect x="-20" y="-20" width="280" height="140" fill="#fff"/>
+      <g id="hole" fill="#000" stroke="#000" stroke-width="5">
+        <path d="M120 20 126.8 40.7 148.5 40.7 130.9 53.6 137.6 74.3 120 61.5 102.4 74.3 109.1 53.6 91.5 40.7 113.2 40.7Z"/>
+        <path d="M99.3 84 102.4 74.3 120 61.5 137.6 74.3 140.7 84V100H99.3Z"/>
+      </g>
+      <path fill="#000" d="M0 0H1.1L45.6 100H0ZM240 0H238.9L194.4 100H240Z"/>
+    </mask>
+    <g mask="url(#m)" fill="none" stroke-linejoin="round" stroke-width="13">
+      <path id="w0" stroke="#e04a3f" d="M4 22H70L86 38H154L170 22H236"/>
+      <path id="crest" fill="#e04a3f" stroke="none" d="M106 33 112 13Q113.5 7 120 7H128Q131 7 132 10L133 13H139L142 21H133.5L137 33Z"/>
+      <path id="w1" stroke="#ecebe0" d="M12 40H62L78 56H112"/><path id="w2" stroke="#ecebe0" d="M228 40H178L162 56H128"/>
+      <path id="w3" stroke="#ecebe0" d="M20 58H54L70 74H110"/><path id="w4" stroke="#ecebe0" d="M220 58H186L170 74H130"/>
+    </g>
+    <path id="chev" fill="none" stroke="#d4a72c" stroke-width="7" d="M103 87 120 72 137 87"/>
+    <path id="tri" fill="#d4a72c" d="M108 98 120 87.5 132 98Z"/>`;
+  const $ = (id) => L.querySelector('#' + id);
+  const hole = $('hole'), crest = $('crest'), tri = $('tri');
+  const name = el('div', 'abs title name', st); const nW = words(name, 'SANDI-CHAIN');
+  const tag = el('div', 'abs tag', st); const tW = words(tag, 'Integritas dan jejak akses dokumen klasifikasi');
+  const flag = svg('svg', { width: 1920, height: 1080, class: 'abs' }, st); flag.style.left = flag.style.top = 0;
+  const fr = svg('path', { d: 'M700 752 H960', stroke: '#d9382f', 'stroke-width': 4, fill: 'none' }, flag);
+  const fw = svg('path', { d: 'M960 752 H1220', stroke: '#ecebe0', 'stroke-width': 4, fill: 'none' }, flag);
+  const run = svg('path', { d: 'M760 904 H1160', stroke: 'rgba(236,235,224,.35)', 'stroke-width': 1.5, fill: 'none' }, flag);
+  const team = el('div', 'abs team', st); const teamW = words(team, 'PASUKAN BIMA');
+  const cur = el('div', 'abs cur', st);
+
+  const P = F.scene.sentences[0].phr; // [kami pasukan bima, ini sandi-chain, sistem..., di atas blockchain]
+  const tTeam = P[0], tName = P[1], tTag = P[2], tLine = P.length > 3 ? P[3] : P[2] + 4.2;
+  const OUT = F.scene.duration - 1.0;
+  F.cue('lock', 1.12);
+
+  return (t) => {
+    // kursor dari adegan 2 meluncur ke titik awal sayap pertama dan menjadi garis
+    const A = { x: 1262, y: 402, w: 30, h: 150 }, B = { x: 540 + 4 * 3.5, y: 110 + 22 * 3.5 - 22.75, w: 10, h: 45.5 };
+    const m = E.ioc(prog(t, 0.45, 0.6));
+    if (t < 1.12) {
+      cur.style.opacity = t < 0.45 ? blink(t + 0.3) || 1 : 1;
+      F.css(cur, { left: lerp(A.x, B.x, m) + 'px', top: lerp(A.y, B.y, m) + 'px', width: lerp(A.w, B.w, m) + 'px', height: lerp(A.h, B.h, m) + 'px',
+        background: m > 0.6 ? '#e04a3f' : 'var(--khaki)' });
+    } else cur.style.opacity = 0;
+    draw($('w0'), t, 1.08, 0.85, E.ioc);
+    const ck = E.spring(prog(t, 1.65, 0.5));
+    crest.style.opacity = clamp(prog(t, 1.65, 0.15)); crest.style.transformOrigin = '122px 20px'; crest.style.transform = `scale(${lerp(0.6, 1, ck)})`;
+    ['w1', 'w2', 'w3', 'w4'].forEach((id, i) => draw($(id), t, 1.75 + i * 5 * FR, 0.6, E.ioc));
+    // ruang kosong bintang terbentuk
+    const hk = E.spring(prog(t, 2.25, 0.55));
+    hole.style.transformOrigin = '120px 52px'; hole.style.transform = `scale(${hk})`;
+    draw($('chev'), t, 2.45, 0.45, E.oc);
+    tri.style.opacity = clamp(prog(t, 2.8, 0.2));
+    // logo dolly kecil
+    L.style.transform = `scale(${lerp(1, 1.03, t / F.scene.duration)})`;
+    reveal(teamW, t, tTeam, { dur: 0.5, out: OUT });
+    reveal(nW, t, tName, { dy: 40, dur: 0.6, stagger: 3 * FR, out: OUT });
+    reveal(tW, t, tTag, { dur: 0.45, stagger: 4 * FR, out: OUT });
+    draw(fr, t, tLine, 0.6, E.oc); draw(fw, t, tLine + 0.25, 0.6, E.oc);
+    // hidup kecil: garis tipis berjalan di bawah nama tim
+    const rk = ((t - tTeam - 1) / 3) % 1;
+    run.style.strokeDasharray = '80 400'; run.style.strokeDashoffset = -480 * (t > tTeam + 1 ? rk : 0) + 80;
+    run.style.opacity = t > tTeam + 1 ? 1 - prog(t, OUT, 0.4) : 0;
+    L.style.opacity = 1 - E.ioc(prog(t, OUT, 0.5));
+  };
+});
+</script></body></html>

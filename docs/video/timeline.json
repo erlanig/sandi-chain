@@ -1,0 +1,432 @@
+{
+ "fps": 30,
+ "total": 262.163,
+ "scenes": [
+  {
+   "scene": 1,
+   "start": 0.0,
+   "end": 17.036,
+   "duration": 17.036,
+   "sentences": [
+    {
+     "id": "S01",
+     "text": "Bayangkan sebuah dokumen rahasia bocor.",
+     "start": 1.2,
+     "end": 3.925,
+     "rel": 1.2,
+     "phr": [
+      1.2
+     ]
+    },
+    {
+     "id": "S02",
+     "text": "Banyak orang pernah membukanya. Siapa pelakunya?",
+     "start": 4.975,
+     "end": 8.559,
+     "rel": 4.975,
+     "phr": [
+      4.975,
+      7.42
+     ]
+    },
+    {
+     "id": "S03",
+     "text": "Sekarang bayangkan, dokumen itu sendiri yang mencatat siapa saja yang membukanya.",
+     "start": 9.809,
+     "end": 15.536,
+     "rel": 9.809,
+     "phr": [
+      9.809,
+      11.296
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 2,
+   "start": 17.036,
+   "end": 39.036,
+   "duration": 22,
+   "sentences": [
+    {
+     "id": "S04",
+     "text": "Pada banyak sistem, jejak akses disimpan di server yang bisa diubah administratornya.",
+     "start": 20.227,
+     "end": 26.349,
+     "rel": 3.191,
+     "phr": [
+      3.191,
+      4.687
+     ]
+    },
+    {
+     "id": "S05",
+     "text": "Log bisa dihapus. Akun bisa dipinjam. Dan setelah bocor, penyelidikan dimulai dari nol.",
+     "start": 31.186,
+     "end": 38.036,
+     "rel": 14.15,
+     "phr": [
+      14.15,
+      15.845,
+      17.702,
+      19.127
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 3,
+   "start": 39.036,
+   "end": 53.036,
+   "duration": 14,
+   "sentences": [
+    {
+     "id": "S06",
+     "text": "Kami Pasukan Bima. Ini SANDI-Chain: sistem integritas dan jejak akses dokumen klasifikasi, di atas blockchain.",
+     "start": 41.681,
+     "end": 50.536,
+     "rel": 2.645,
+     "phr": [
+      2.645,
+      4.444,
+      5.976,
+      10.267,
+      11.189
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 4,
+   "start": 53.036,
+   "end": 115.068,
+   "duration": 62.032,
+   "sentences": [
+    {
+     "id": "S07",
+     "text": "Pertama, mencegah. File tidak pernah masuk ke blockchain. File dienkripsi, dan yang dicatat di ledger hanya sidik jarinya.",
+     "start": 53.836,
+     "end": 62.988,
+     "rel": 0.8,
+     "phr": [
+      0.8,
+      1.555,
+      2.774,
+      4.842,
+      5.586,
+      6.97
+     ]
+    },
+    {
+     "id": "S08",
+     "text": "Siapa boleh membuka apa, diputuskan oleh chaincode berdasarkan atribut di sertifikat personel. Bukan oleh aplikasi, dan bukan oleh administrator.",
+     "start": 64.438,
+     "end": 75.374,
+     "rel": 11.402,
+     "phr": [
+      11.402,
+      13.318,
+      18.571,
+      20.292
+     ]
+    },
+    {
+     "id": "S09",
+     "text": "Setiap transaksi harus disepakati dua organisasi: Mabesad atau Kodam, dan Satuan.",
+     "start": 76.824,
+     "end": 83.485,
+     "rel": 23.788,
+     "phr": [
+      23.788,
+      24.39,
+      28.026,
+      29.57
+     ]
+    },
+    {
+     "id": "S10",
+     "text": "Dalam mode perangkat, tanda tangan dibuat di perangkat personel. Kunci pribadinya tidak pernah berada di server.",
+     "start": 84.935,
+     "end": 92.573,
+     "rel": 31.899,
+     "phr": [
+      31.899,
+      33.339,
+      36.439
+     ]
+    },
+    {
+     "id": "S11",
+     "text": "Kunci dokumen pun tidak dilepas begitu saja. Ia hanya keluar jika ledger memuat catatan akses yang sah, baru, dan belum pernah dipakai.",
+     "start": 94.223,
+     "end": 104.366,
+     "rel": 41.187,
+     "phr": [
+      41.187,
+      44.748,
+      49.105,
+      49.653
+     ]
+    },
+    {
+     "id": "S12",
+     "text": "Percobaan yang ditolak tetap tercatat, dan langsung menjadi peringatan untuk unit pengamanan.",
+     "start": 105.816,
+     "end": 112.068,
+     "rel": 52.78,
+     "phr": [
+      52.78,
+      54.333,
+      54.763,
+      55.563
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 5,
+   "start": 115.068,
+   "end": 147.89,
+   "duration": 32.822,
+   "sentences": [
+    {
+     "id": "S13",
+     "text": "Kedua, mendeteksi. Sentinel membaca setiap kejadian di ledger, lalu menghitung skor risiko tiap personel.",
+     "start": 115.868,
+     "end": 123.685,
+     "rel": 0.8,
+     "phr": [
+      0.8,
+      1.45,
+      2.719,
+      5.753,
+      7.993
+     ]
+    },
+    {
+     "id": "S14",
+     "text": "Ada tujuh aturan yang bisa dijelaskan: penolakan beruntun, menyisir banyak dokumen, membuka dokumen secara massal, akses di luar jam dinas, dan lainnya.",
+     "start": 125.135,
+     "end": 136.309,
+     "rel": 10.067,
+     "phr": [
+      10.067,
+      13.217,
+      14.615,
+      16.421,
+      18.62,
+      20.46
+     ]
+    },
+    {
+     "id": "S15",
+     "text": "Tidak ada kotak hitam. Setiap skor datang bersama buktinya, yang bisa diperiksa ulang di ledger.",
+     "start": 138.159,
+     "end": 144.89,
+     "rel": 23.091,
+     "phr": [
+      23.091,
+      25.05,
+      27.724
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 6,
+   "start": 147.89,
+   "end": 191.89,
+   "duration": 44,
+   "sentences": [
+    {
+     "id": "S16",
+     "text": "Ketiga, menelusuri. Setiap dokumen yang dibuka diberi watermark berisi nama, NRP, waktu, dan kode transaksi.",
+     "start": 153.192,
+     "end": 162.087,
+     "rel": 5.302,
+     "phr": [
+      5.302,
+      6.042,
+      7.329,
+      10.381,
+      11.38,
+      12.186,
+      12.809
+     ]
+    },
+    {
+     "id": "S17",
+     "text": "Kalau salinannya bocor, masukkan kode itu, atau unggah PDF-nya.",
+     "start": 167.513,
+     "end": 172.344,
+     "rel": 19.623,
+     "phr": [
+      19.623,
+      21.361,
+      22.752
+     ]
+    },
+    {
+     "id": "S18",
+     "text": "Sistem langsung menunjukkan siapa yang membukanya, kapan, lewat disposisi siapa, dan siapa lagi yang pernah membuka dokumen yang sama.",
+     "start": 178.57,
+     "end": 187.89,
+     "rel": 30.68,
+     "phr": [
+      30.68,
+      34.095,
+      34.719,
+      36.557
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 7,
+   "start": 191.89,
+   "end": 211.89,
+   "duration": 20,
+   "sentences": [
+    {
+     "id": "S19",
+     "text": "Keempat, membuktikan. Karena jejaknya ada di ledger, ia tidak bisa dihapus, bahkan oleh administrator.",
+     "start": 193.543,
+     "end": 201.445,
+     "rel": 1.653,
+     "phr": [
+      1.653,
+      2.423,
+      3.795,
+      5.79,
+      7.62
+     ]
+    },
+    {
+     "id": "S20",
+     "text": "Dan perubahan satu bit saja pada sebuah salinan akan langsung terdeteksi.",
+     "start": 204.174,
+     "end": 209.39,
+     "rel": 12.284,
+     "phr": [
+      12.284,
+      15.873
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 8,
+   "start": 211.89,
+   "end": 234.163,
+   "duration": 22.273,
+   "sentences": [
+    {
+     "id": "S21",
+     "text": "Semua komponennya dirancang berjalan di jaringan sendiri, tanpa cloud, termasuk di jaringan tertutup.",
+     "start": 212.69,
+     "end": 219.534,
+     "rel": 0.8,
+     "phr": [
+      0.8,
+      4.873,
+      5.797
+     ]
+    },
+    {
+     "id": "S22",
+     "text": "Jalan menuju produksi sudah kami petakan: kunci di perangkat personel, Vault tingkat produksi, serta integrasi ke direktori pengguna dan SIEM yang sudah ada.",
+     "start": 221.184,
+     "end": 232.163,
+     "rel": 9.294,
+     "phr": [
+      9.294,
+      12.658,
+      14.523,
+      14.942,
+      15.369,
+      16.139
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 9,
+   "start": 234.163,
+   "end": 246.163,
+   "duration": 12,
+   "sentences": [
+    {
+     "id": "S23",
+     "text": "Semuanya diuji: tes otomatis di backend dan chaincode, dan tiga pipeline CI yang hijau.",
+     "start": 236.886,
+     "end": 243.663,
+     "rel": 2.723,
+     "phr": [
+      2.723,
+      4.375,
+      7.004
+     ]
+    }
+   ]
+  },
+  {
+   "scene": 10,
+   "start": 246.163,
+   "end": 262.163,
+   "duration": 16,
+   "sentences": [
+    {
+     "id": "S24a",
+     "text": "Cegah.",
+     "start": 247.711,
+     "end": 248.198,
+     "rel": 1.548,
+     "phr": [
+      1.548
+     ]
+    },
+    {
+     "id": "S24b",
+     "text": "Deteksi.",
+     "start": 248.898,
+     "end": 249.494,
+     "rel": 2.736,
+     "phr": [
+      2.736
+     ]
+    },
+    {
+     "id": "S24c",
+     "text": "Telusuri.",
+     "start": 250.195,
+     "end": 250.806,
+     "rel": 4.032,
+     "phr": [
+      4.032
+     ]
+    },
+    {
+     "id": "S24d",
+     "text": "Buktikan.",
+     "start": 251.506,
+     "end": 252.208,
+     "rel": 5.344,
+     "phr": [
+      5.344
+     ]
+    },
+    {
+     "id": "S25",
+     "text": "Kami Pasukan Bima. Terima kasih.",
+     "start": 254.409,
+     "end": 257.163,
+     "rel": 8.246,
+     "phr": [
+      8.246,
+      10.13
+     ]
+    }
+   ]
+  }
+ ]
+}

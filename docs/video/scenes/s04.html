@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>04 Cegah</title>
+<link rel="stylesheet" href="../film/fonts.css"><link rel="stylesheet" href="../film/film.css">
+<script src="../film/lib.js"></script>
+<style>
+  .head { left: 120px; top: 96px; font-size: 104px; white-space: nowrap; }
+  .head .n { color: var(--khaki); margin-right: 26px; }
+  .ledger { left: 1340px; top: 196px; width: 460px; height: 700px; overflow: hidden; }
+  .ledger .lh { position: absolute; left: 28px; top: 26px; font: 500 28px/1 var(--mono); letter-spacing: .14em; color: var(--dim); }
+  .ledger .clip { position: absolute; left: 0; right: 0; top: 84px; bottom: 0; overflow: hidden; }
+  .row { position: absolute; left: 20px; right: 20px; height: 88px; border-radius: 10px; background: var(--layer2); border: 1px solid var(--hair); padding: 12px 18px 0 26px; overflow: hidden; }
+  .row .lk { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--khaki); transform-origin: 50% 0; }
+  .row .a { font: 500 28px/34px var(--mono); color: var(--khaki); white-space: nowrap; }
+  .row .b { font: 400 28px/34px var(--mono); color: var(--dim); white-space: nowrap; }
+  .row.red .a { color: #e8605a; } .row.red .lk { background: var(--red); }
+  .row .tag { position: absolute; right: 14px; top: 46px; font: 600 24px/1 var(--mono); letter-spacing: .06em; padding: 6px 10px; border-radius: 6px; border: 1.5px solid var(--khaki); color: var(--khaki); }
+  .row .full { position: absolute; left: 26px; right: 18px; top: 12px; }
+  .row .full .hx { font: 500 30px/40px var(--mono); color: var(--ink); letter-spacing: .02em; }
+  .row .full .cap { margin-top: 10px; font: 600 34px/1 var(--sans); color: var(--ink); }
+  .paper { background: var(--paper); color: var(--paper-ink); border-radius: 6px; box-shadow: 0 30px 70px rgba(0,0,0,.5); padding: 30px 28px; }
+  .paper .no { font: 700 30px/1.15 var(--sans); }
+  .paper p { margin-top: 18px; font: 400 17px/1.55 var(--sans); color: #2b3125; }
+  .box { border: 2px solid var(--hair2); border-radius: 16px; background: var(--layer); }
+  .box .t { position: absolute; left: 0; right: 0; text-align: center; }
+  .cell { position: absolute; width: 30px; height: 30px; border-radius: 4px; background: var(--olive); font: 500 17px/30px var(--mono); text-align: center; color: var(--ink); }
+  .card { padding: 24px 28px; }
+  .card .ct { font: 500 28px/1 var(--mono); letter-spacing: .1em; color: var(--dim); }
+  .card .cn { margin-top: 16px; font: 700 40px/1 var(--sans); }
+  .card .at { margin-top: 12px; font: 400 28px/1.35 var(--mono); color: var(--dim); white-space: nowrap; }
+  .card .at b { font-weight: 500; color: var(--ink); }
+  .pill { font: 700 52px/1 var(--title); letter-spacing: .06em; padding: 14px 26px 12px; border-radius: 12px; white-space: nowrap; }
+  .lbl { font: 600 34px/1 var(--sans); white-space: nowrap; }
+  .mlbl { font: 500 28px/1 var(--mono); color: var(--dim); white-space: nowrap; letter-spacing: .04em; }
+  .strike { position: relative; display: inline-block; }
+  .strike i { position: absolute; left: -6px; right: -6px; top: 54%; height: 4px; background: var(--red); transform-origin: 0 50%; }
+  .stampk { color: var(--khaki); border-color: var(--khaki); outline-color: var(--khaki); }
+  .barT { height: 14px; border-radius: 7px; background: var(--hair); overflow: hidden; }
+  .barT i { display: block; height: 100%; background: var(--khaki); transform-origin: 0 50%; }
+  .chk { font: 600 34px/1 var(--sans); white-space: nowrap; }
+  .chk b { color: var(--khaki); font-weight: 700; margin-right: 14px; }
+</style></head><body><script>
+F.boot(4, (st, F) => {
+  const { el, svg, words, reveal, show, draw, stamp, prog, E, lerp, blink, S, FR, clamp, css } = F;
+  const SC = F.scene, D = SC.duration, ph = (id) => SC.sentences.find((s) => s.id === id).phr;
+  const P7 = ph('S07'), P8 = ph('S08'), P9 = ph('S09'), P10 = ph('S10'), P11 = ph('S11'), P12 = ph('S12');
+  const HASH = F.facts.docSha256.value;
+
+  // ---------- kepala + garis dari adegan 3 ----------
+  const head = el('div', 'abs title head', st, '<span class="n">01</span><span class="w">Cegah</span>');
+  const headW = words(head.querySelector('.w'), 'Cegah');
+  const headN = head.querySelector('.n');
+  const ink = svg('svg', { width: 1920, height: 1080, class: 'abs' }, st); ink.style.left = ink.style.top = 0; ink.style.zIndex = 5; ink.style.pointerEvents = 'none';
+  const morphR = svg('path', { stroke: '#d9382f', 'stroke-width': 4, fill: 'none' }, ink);
+  const morphW = svg('path', { stroke: '#ecebe0', 'stroke-width': 4, fill: 'none' }, ink);
+
+  // ---------- ledger (tetap sepanjang adegan) ----------
+  const led = el('div', 'panel ledger', st);
+  el('div', 'lh', led, 'LEDGER · ch-rahasia');
+  const clip = el('div', 'clip', led);
+  const R = [];
+  function row(t0, a, b, red, tag) {
+    const r = el('div', 'row' + (red ? ' red' : ''), clip, `<div class="lk"></div><div class="a">${a}</div><div class="b">${b}</div>`);
+    if (tag) { r.tag = el('div', 'tag', r, tag.text); r.tagT = tag.t; }
+    r.t0 = t0; r.h = 88; R.push(r); F.cue('tick', t0); F.cue('lock', t0 + 0.42);
+    return r;
+  }
+  // blok hash (4a): bentuk penuh lalu ringkas
+  const tHash = P7[5] + 0.25, tCompact = 10.6;
+  const r0 = row(tHash, 'DOC_CREATED', 'sha256 ' + HASH.slice(0, 8) + '…');
+  const full = el('div', 'full', r0, `<div class="mlbl" style="color:var(--khaki)">sha256 · blok baru</div>
+     <div class="hx" style="margin-top:12px">${HASH.slice(0, 16)}<br>${HASH.slice(16, 32)}<br>${HASH.slice(32, 48)}<br>${HASH.slice(48)}</div>
+     <div class="cap">bukan filenya</div>`);
+  const r0a = r0.querySelector('.a'), r0b = r0.querySelector('.b');
+
+  // ---------- 4a: dokumen -> penyimpanan terenkripsi; ledger hanya hash ----------
+  const doc = el('div', 'abs paper', st, `<div class="no">R/001/XI/2026</div><div class="no" style="font-weight:600;font-size:24px;margin-top:6px">Rencana Operasi Latihan Gabungan</div>
+     <p>Latihan gabungan dilaksanakan pada minggu ketiga November 2026 di daerah latihan yang telah ditentukan. Satuan pelaksana menyiapkan personel, alat komunikasi, dan logistik sesuai lampiran.</p>`);
+  css(doc, { left: '150px', top: '330px', width: '330px', height: '430px' });
+  const vault = el('div', 'abs box', st); css(vault, { left: '640px', top: '380px', width: '520px', height: '330px' });
+  el('div', 't lbl', vault, 'Penyimpanan terenkripsi').style.top = '40px';
+  const aes = el('div', 't mlbl', vault, 'AES-256-GCM'); aes.style.top = '96px'; aes.style.color = 'var(--khaki)';
+  const cells = [];
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const HEX = '0123456789abcdef';
+  for (let i = 0; i < 40; i++) {
+    const c = el('div', 'cell', st, HEX[Math.floor(rnd() * 16)] + HEX[Math.floor(rnd() * 16)]);
+    c.sx = 170 + (i % 8) * 37; c.sy = 360 + Math.floor(i / 8) * 76; c.tx = 700 + (i % 10) * 40; c.ty = 520 + Math.floor(i / 10) * 40; c.d = rnd() * 0.5;
+    cells.push(c);
+  }
+  const noLed = svg('path', { d: 'M480 300 C 760 220, 1000 220, 1160 260', stroke: 'var(--hair2)', 'stroke-width': 3, 'stroke-dasharray': '10 12', fill: 'none' }, ink);
+  const stopBar = el('div', 'abs', st); css(stopBar, { left: '1188px', top: '232px', width: '8px', height: '60px', background: 'var(--red)', borderRadius: '4px' });
+  const stopL = el('div', 'abs mlbl', st, 'file tidak masuk'); css(stopL, { left: '720px', top: '196px', color: '#e8605a' });
+  const hashLine = svg('path', { stroke: 'var(--khaki)', 'stroke-width': 3, fill: 'none' }, ink);
+
+  // ---------- 4b: sertifikat -> chaincode -> hasil ----------
+  const mkCard = (y, nm, cl, jb) => {
+    const c = el('div', 'abs box card', st, `<div class="ct">SERTIFIKAT X.509</div><div class="cn">${nm}</div>
+      <div class="at">clearance <b class="cl">${cl}</b></div><div class="at">jabatan <b>${jb}</b></div><div class="at">role <b>user</b></div>`);
+    css(c, { left: '120px', top: y + 'px', width: '476px', height: '286px' });
+    return c;
+  };
+  const cardA = mkCard(250, 'kapten.andi', 'SANGAT_RAHASIA', 'Pasi Ops');
+  const cardB = mkCard(578, 'serka.budi', 'TERBATAS', 'Staf TU');
+  const gate = svg('g', {}, ink);
+  const g1 = svg('path', { d: 'M660 236 V880', stroke: 'var(--khaki)', 'stroke-width': 4, fill: 'none' }, gate);
+  const g2 = svg('path', { d: 'M688 236 V880', stroke: 'var(--khaki)', 'stroke-width': 4, fill: 'none' }, gate);
+  const gl = el('div', 'abs mlbl', st, 'chaincode'); css(gl, { left: '612px', top: '196px', color: 'var(--khaki)' });
+  const ok = el('div', 'abs pill', st, 'DIIZINKAN'); css(ok, { left: '780px', top: '350px', background: 'var(--khaki)', color: '#141a10' });
+  const no = el('div', 'abs pill', st, 'DITOLAK'); css(no, { left: '780px', top: '680px', background: 'var(--red)', color: '#fff' });
+  const okL = svg('path', { stroke: 'var(--khaki)', 'stroke-width': 3, fill: 'none' }, ink);
+  const noL = svg('path', { stroke: 'var(--red)', 'stroke-width': 3, fill: 'none' }, ink);
+  const lnA = svg('path', { d: 'M626 393 H660', stroke: 'var(--khaki)', 'stroke-width': 3, fill: 'none' }, ink);
+  const lnB = svg('path', { d: 'M626 721 H660', stroke: 'var(--red)', 'stroke-width': 3, fill: 'none' }, ink);
+  const s1 = el('div', 'abs lbl', st, 'bukan <span class="strike">aplikasi<i></i></span>'); css(s1, { left: '780px', top: '500px' });
+  const s2 = el('div', 'abs lbl', st, 'bukan <span class="strike">administrator<i></i></span>'); css(s2, { left: '780px', top: '560px' });
+  const s1i = s1.querySelector('i'), s2i = s2.querySelector('i');
+
+  // ---------- 4c: dua organisasi + tanda tangan di perangkat ----------
+  const tx = el('div', 'abs box card', st, `<div class="ct">TRANSAKSI</div><div class="cn" style="font-family:var(--mono);font-weight:500;color:var(--khaki);font-size:44px">ACCESS_GRANTED</div>
+     <div class="at" style="font-size:30px">R/001/XI/2026 · <b>kapten.andi</b></div>`);
+  css(tx, { left: '170px', top: '250px', width: '900px', height: '560px' });
+  const slot = (x, txt) => { const s = el('div', 'abs', tx); css(s, { left: x + 'px', top: '250px', width: '380px', height: '220px', border: '2px dashed var(--hair2)', borderRadius: '12px' }); const l = el('div', 'mlbl', s, txt); css(l, { position: 'absolute', left: '20px', bottom: '18px' }); return s; };
+  slot(40, 'persetujuan Org1'); slot(460, 'persetujuan Org2');
+  const st1 = el('div', 'stamp stampk', tx, 'Org1 · Mabesad/Kodam'); css(st1, { left: '62px', top: '318px', fontSize: '34px' });
+  const st2 = el('div', 'stamp stampk', tx, 'Org2 · Satuan'); css(st2, { left: '520px', top: '318px', fontSize: '34px' });
+  const txGhost = el('div', 'abs', st); css(txGhost, { left: '170px', top: '250px', width: '900px', height: '560px', border: '1.5px solid var(--hair2)', borderRadius: '16px' });
+
+  const dev = el('div', 'abs', st); css(dev, { left: '180px', top: '270px', width: '300px', height: '540px', border: '3px solid var(--ink)', borderRadius: '40px' });
+  const devL = el('div', 'mlbl', dev, 'perangkat personel'); css(devL, { position: 'absolute', left: '0', right: '0', textAlign: 'center', top: '-48px', color: 'var(--ink)' });
+  const keySvg = svg('svg', { viewBox: '0 0 120 260', width: 120, height: 260, class: 'abs' }, dev); css(keySvg, { left: '87px', top: '120px' });
+  // kunci pribadi: kepala bulat + batang bertakik, digambar sendiri
+  const keyP = svg('path', { d: 'M60 10 a45 45 0 1 1 -0.1 0 Z M60 40 a15 15 0 1 0 0.1 0 Z M50 98 V250 H70 V226 H86 V208 H70 V184 H82 V166 H70 V98 Z', fill: 'var(--khaki)', 'fill-rule': 'evenodd' }, keySvg);
+  const keyBox = el('div', 'abs', dev); css(keyBox, { left: '58px', top: '100px', width: '178px', height: '300px', border: '2.5px dashed var(--khaki)', borderRadius: '18px' });
+  const keyL = el('div', 'mlbl', dev, 'kunci pribadi'); css(keyL, { position: 'absolute', left: '0', right: '0', textAlign: 'center', top: '420px', color: 'var(--khaki)' });
+  const srv = el('div', 'abs box', st); css(srv, { left: '800px', top: '360px', width: '420px', height: '360px' });
+  el('div', 't lbl', srv, 'Server').style.top = '36px';
+  const srvSig = el('div', 't mlbl', srv, 'tanda tangan ✓'); srvSig.style.top = '150px'; srvSig.style.color = 'var(--khaki)';
+  const srvKey = el('div', 't mlbl', srv, 'kunci pribadi: tidak ada'); srvKey.style.top = '220px'; srvKey.style.color = '#e8605a';
+  const sigL = svg('path', { d: 'M480 540 C 600 540, 680 540, 800 540', stroke: 'var(--khaki)', 'stroke-width': 3, fill: 'none' }, ink);
+  const sigTok = el('div', 'abs mlbl', st, 'sig 3045…'); sigTok.style.color = 'var(--ink)';
+
+  // ---------- 4d: KeyGuard + jendela bukti + peringatan ----------
+  const kg = el('div', 'abs box', st); css(kg, { left: '170px', top: '250px', width: '760px', height: '470px' });
+  el('div', 'lbl', kg, 'KeyGuard').style.cssText = 'position:absolute;left:40px;top:36px;font-size:44px;font-family:var(--title);font-weight:700;letter-spacing:.04em;text-transform:uppercase';
+  const kgSub = el('div', 'mlbl', kg, 'melepas kunci dokumen'); css(kgSub, { position: 'absolute', left: '40px', top: '92px' });
+  const dkey = svg('svg', { viewBox: '0 0 260 120', width: 260, height: 120, class: 'abs' }, kg); css(dkey, { left: '420px', top: '170px' });
+  svg('path', { d: 'M12 60 a48 48 0 1 0 96 0 a48 48 0 1 0 -96 0 Z M42 60 a18 18 0 1 0 36 0 a18 18 0 1 0 -36 0 Z', fill: 'var(--ink)', 'fill-rule': 'evenodd' }, dkey);
+  svg('path', { d: 'M108 50 H250 V70 H232 V88 H214 V70 H196 V84 H180 V70 H108 Z', fill: 'var(--ink)' }, dkey);
+  const latch = el('div', 'abs', kg); css(latch, { left: '700px', top: '160px', width: '12px', height: '140px', background: 'var(--ink)', borderRadius: '6px' });
+  const checks = ['sah', 'baru (≤ 120 detik)', 'belum pernah dipakai'].map((s, i) => { const c = el('div', 'abs chk', kg, `<b>✓</b>${s}`); css(c, { left: '40px', top: 170 + i * 66 + 'px' }); return c; });
+  const barW = el('div', 'abs', st); css(barW, { left: '170px', top: '752px', width: '760px' });
+  const barL = el('div', 'mlbl', barW, 'jendela bukti · 120 detik'); barL.style.marginBottom = '14px';
+  const bar = el('div', 'barT', barW, '<i></i>'); const barI = bar.querySelector('i');
+  const kgL = svg('path', { stroke: 'var(--khaki)', 'stroke-width': 3, fill: 'none' }, ink);
+  const alertP = el('div', 'abs box', st); css(alertP, { left: '170px', top: '300px', width: '760px', height: '360px' });
+  el('div', 'mlbl', alertP, 'UNIT PENGAMANAN').style.cssText = 'position:absolute;left:36px;top:34px;letter-spacing:.14em';
+  const al = el('div', 'abs', alertP); css(al, { left: '30px', top: '100px', width: '700px', height: '220px', borderRadius: '12px', background: 'rgba(217,56,47,.14)', border: '2px solid var(--red)', padding: '26px 30px' });
+  el('div', 'lbl', al, 'Peringatan · Akses ditolak').style.color = '#e8605a';
+  el('div', 'mlbl', al, 'serka.budi → R/001/XI/2026').style.cssText = 'margin-top:22px;color:var(--ink)';
+  el('div', 'mlbl', al, 'ACCESS_DENIED · tercatat di ledger').style.marginTop = '16px';
+  const dot = el('div', 'abs', alertP); css(dot, { right: '40px', top: '36px', width: '16px', height: '16px', borderRadius: '8px', background: 'var(--red)' });
+  const flyRow = el('div', 'abs row red', st, `<div class="lk"></div><div class="a">ACCESS_DENIED</div><div class="b">serka.budi</div>`);
+  css(flyRow, { width: '420px' });
+
+  // ---------- baris ledger berikutnya ----------
+  const tOkLine = P8[1] + 1.9, tNoLine = P8[1] + 2.6;
+  const rA = row(tOkLine + 0.5, 'ACCESS_GRANTED', 'kapten.andi');
+  const rB = row(tNoLine + 0.5, 'ACCESS_DENIED', 'serka.budi', true);
+  const tEnd = P9[3] + 1.2;
+  const rC = row(tEnd + 0.55, 'DISAHKAN', 'Org1 + Org2');
+  const tKgRow = P11[1] + 0.2;
+  const rD = row(tKgRow, 'ACCESS_GRANTED', 'kapten.andi', false, { text: 'TERPAKAI', t: P11[3] + 1.0 });
+  const rE = row(P12[0] + 0.05, 'ACCESS_DENIED', 'serka.budi', true);
+  const tRelease = P11[3] + 0.6;
+  F.cue('stamp', P9[2]); F.cue('stamp', P9[3]); F.cue('release', tRelease); F.cue('alert', P12[3] + 0.55);
+
+  const path = (p, a, b, bend = 0.5) => { const mx = lerp(a[0], b[0], bend); p.setAttribute('d', `M${a[0]} ${a[1]} C ${mx} ${a[1]}, ${mx} ${b[1]}, ${b[0]} ${b[1]}`); p.__len = 0; };
+  const rowY = (r) => 196 + 84 + (parseFloat(r.style.top) || 0) + r.h / 2;
+  // keadaan masuk/keluar per beat
+  const beat = (e, t, a, b, o = {}) => { const k = show(e, t, a, { dur: 0.55, dx: o.dx ?? -30, out: b, outDur: 0.45 }); e.style.visibility = t < a - 0.01 || t > b + 0.5 ? 'hidden' : 'visible'; return k; };
+
+  return (t) => {
+    // morph garis merah-putih -> garis bawah judul
+    const mk = E.ioc(prog(t, 0.0, 0.75));
+    const mo = 1 - prog(t, 0.75, 0.3);
+    morphR.setAttribute('d', `M${lerp(700, 120, mk)} ${lerp(752, 196, mk)} H${lerp(960, 250, mk)}`);
+    morphW.setAttribute('d', `M${lerp(960, 250, mk)} ${lerp(752, 196, mk)} H${lerp(1220, 380, mk)}`);
+    morphR.style.opacity = morphW.style.opacity = mo;
+    show(headN, t, P7[0] - 0.05, { dur: 0.4, dy: 14 });
+    reveal(headW, t, P7[0] + 0.1, { dy: 30, dur: 0.5 });
+
+    // ledger panel
+    const lk = show(led, t, P7[2], { dur: 0.6, dx: 60, ease: E.spring });
+    // tata letak baris: tinggi tumbuh halus; gulir saat penuh
+    let y = 0;
+    R.forEach((r) => {
+      const g = E.ioc(prog(t, r.t0 - 0.05, 0.3));
+      let h = 88;
+      if (r === r0) { const c = E.ioc(prog(t, tCompact, 0.5)); h = lerp(316, 88, c); full.style.opacity = 1 - clamp(c * 2); r0a.style.opacity = r0b.style.opacity = clamp(c * 2 - 1); }
+      r.h = h; r.style.height = h + 'px';
+      r.style.top = y + 'px';
+      y += (h + 12) * g;
+    });
+    const scroll = Math.max(0, y - 604);
+    R.forEach((r) => {
+      r.style.top = parseFloat(r.style.top) - scroll + 'px';
+      const k = prog(t, r.t0, 0.42);
+      const s = E.spring(k);
+      const snap = t >= r.t0 + 0.42 && t < r.t0 + 0.42 + 2 * FR ? 2 : 0;
+      r.style.transform = `translateX(${(1 - s) * 90 + snap}px)`;
+      r.style.opacity = clamp(k * 3);
+      r.querySelector('.lk').style.transform = `scaleY(${E.oc(prog(t, r.t0 + 0.4, 0.25))})`;
+      if (r.tag) show(r.tag, t, r.tagT, { dur: 0.3, scale: 0.3, ease: E.spring });
+    });
+
+    // ===== 4a =====
+    const aOut = 10.7;
+    beat(doc, t, P7[2], aOut);
+    draw(noLed, t, P7[2] + 0.5, 0.8, E.oc); noLed.style.opacity = (t > P7[2] + 0.5 ? 1 : 0) * (1 - prog(t, aOut, 0.4));
+    show(stopBar, t, P7[2] + 1.25, { dur: 0.25, scale: 0.5, ease: E.spring, out: aOut });
+    show(stopL, t, P7[2] + 1.3, { dur: 0.4, out: aOut });
+    beat(vault, t, P7[3] - 0.1, aOut, { dx: 0 });
+    // dokumen terurai jadi sel sandi menuju penyimpanan
+    const dk = prog(t, P7[3] + 0.3, 0.6);
+    doc.style.clipPath = `inset(0 0 ${dk * 100}% 0)`;
+    cells.forEach((c, i) => {
+      const k = E.ioc(prog(t, P7[3] + 0.3 + c.d, 0.8));
+      const vis = t > P7[3] + 0.3 + c.d * 0.5;
+      css(c, { left: lerp(c.sx, c.tx, k) + 'px', top: lerp(c.sy, c.ty, k) + 'px', opacity: vis ? 1 - prog(t, aOut, 0.4) : 0, background: k >= 1 ? '#2c3820' : 'var(--olive)' });
+    });
+    // garis tinta: hanya hash ke ledger
+    path(hashLine, [1160, 545], [1360, rowY(r0)], 0.5);
+    draw(hashLine, t, P7[5] - 0.35, 0.55, E.oc); hashLine.style.opacity = t > P7[5] - 0.35 ? 1 - prog(t, aOut, 0.4) : 0;
+
+    // ===== 4b =====
+    const bIn = P8[0], bOut = 23.1;
+    const ca = beat(cardA, t, bIn, bOut), cb = beat(cardB, t, bIn + 5 * FR, bOut);
+    const toGate = E.ioc(prog(t, P8[1], 0.7));
+    const tg = (e) => (e.style.transform = (e.style.transform === 'none' ? '' : e.style.transform) + ` translateX(${toGate * 30}px)`); tg(cardA); tg(cardB);
+    [g1, g2].forEach((g, i) => { draw(g, t, P8[1] - 0.2 + i * 4 * FR, 0.6); g.style.opacity = t > P8[1] - 0.2 ? 1 - prog(t, bOut, 0.4) : 0; });
+    show(gl, t, P8[1] - 0.1, { dur: 0.4, out: bOut });
+    cardA.querySelector('.cl').style.color = t > P8[1] + 0.8 ? 'var(--khaki)' : '';
+    cardB.querySelector('.cl').style.color = t > P8[1] + 1.1 ? '#e8605a' : '';
+    draw(lnA, t, P8[1] + 0.7, 0.3, E.oc); lnA.style.opacity = t > P8[1] + 0.7 ? 1 - prog(t, bOut, 0.4) : 0;
+    draw(lnB, t, P8[1] + 1.0, 0.3, E.oc); lnB.style.opacity = t > P8[1] + 1.0 ? 1 - prog(t, bOut, 0.4) : 0;
+    show(ok, t, P8[1] + 1.0, { dur: 0.45, scale: 0.15, ease: E.spring, out: bOut });
+    show(no, t, P8[1] + 1.3, { dur: 0.45, scale: 0.15, ease: E.spring, out: bOut });
+    path(okL, [1130, 383], [1360, rowY(rA)], 0.45); draw(okL, t, tOkLine, 0.5, E.oc); okL.style.opacity = t > tOkLine ? 1 - prog(t, bOut, 0.4) : 0;
+    path(noL, [1030, 713], [1360, rowY(rB)], 0.45); draw(noL, t, tNoLine, 0.5, E.oc); noL.style.opacity = t > tNoLine ? 1 - prog(t, bOut, 0.4) : 0;
+    show(s1, t, P8[2], { dur: 0.4, dy: 12, out: bOut }); s1i.style.transform = `scaleX(${E.oc(prog(t, P8[2] + 0.5, 0.35))})`;
+    show(s2, t, P8[3], { dur: 0.4, dy: 12, out: bOut }); s2i.style.transform = `scaleX(${E.oc(prog(t, P8[3] + 0.6, 0.35))})`;
+
+    // ===== 4c-1: dua organisasi =====
+    const cIn = P9[0], cOut = tEnd;
+    beat(tx, t, cIn, 1e9, { dx: -30 });
+    stamp(st1, t, P9[2], -3); stamp(st2, t, P9[3], 2);
+    // kartu transaksi mengecil masuk ke ledger, jejak samar posisi awal (ghost)
+    const fly = E.ioc(prog(t, cOut, 0.6));
+    if (t >= cOut) {
+      const tx0 = { x: 170, y: 250, w: 900, h: 560 }, tx1 = { x: 1360, y: rowY(rC) - 44, w: 420, h: 88 };
+      css(tx, { transformOrigin: '0 0', transform: `translate(${lerp(0, tx1.x - tx0.x, fly)}px, ${lerp(0, tx1.y - tx0.y, fly)}px) scale(${lerp(1, tx1.w / tx0.w, fly)}, ${lerp(1, tx1.h / tx0.h, fly)})`, opacity: 1 - prog(t, cOut + 0.35, 0.25) });
+      tx.style.visibility = t > cOut + 0.65 ? 'hidden' : 'visible';
+    } else tx.style.transformOrigin = '50% 50%';
+    txGhost.style.opacity = t > cOut ? 0.6 * (1 - prog(t, cOut + 0.3, 0.8)) : 0;
+
+    // ===== 4c-2: tanda tangan di perangkat =====
+    const dIn = P10[0], dOut = 40.6;
+    beat(dev, t, dIn, dOut, { dx: -30 });
+    show(keySvg, t, P10[1], { dur: 0.5, scale: 0.2, ease: E.spring });
+    show(keyBox, t, P10[2] + 0.2, { dur: 0.4 }); show(keyL, t, P10[2] + 0.4, { dur: 0.4 });
+    beat(srv, t, dIn + 0.4, dOut, { dx: 30 });
+    show(srvSig, t, P10[1] + 2.0, { dur: 0.35 }); show(srvKey, t, P10[2] + 0.6, { dur: 0.35 });
+    draw(sigL, t, P10[1] + 0.6, 0.6, E.oc); sigL.style.opacity = t > P10[1] + 0.6 ? 1 - prog(t, dOut, 0.4) : 0;
+    const sk = E.ioc(prog(t, P10[1] + 0.8, 1.1));
+    css(sigTok, { left: lerp(330, 900, sk) + 'px', top: '492px', opacity: t > P10[1] + 0.8 && sk < 1 ? 1 : 0 });
+
+    // ===== 4d-1: KeyGuard =====
+    const kIn = P11[0], kOut = 52.0;
+    beat(kg, t, kIn, kOut, { dx: -30 });
+    checks.forEach((c, i) => show(c, t, [P11[1] + 0.9, P11[2], P11[3] + 0.15][i], { dur: 0.35, dx: -12 }));
+    beat(barW, t, P11[1] + 0.6, kOut, { dx: 0 });
+    barI.style.transform = `scaleX(${1 - E.lin(prog(t, P11[1] + 0.6, 120)) * 1}) scaleX(${1 - 0.0})`;
+    barI.style.transform = `scaleX(${lerp(1, 0.94, prog(t, P11[1] + 0.6, 6))})`;
+    path(kgL, [1360, rowY(rD)], [930, 330], 0.5); draw(kgL, t, tKgRow + 0.45, 0.5, E.oc); kgL.style.opacity = t > tKgRow + 0.45 ? 1 - prog(t, kOut, 0.4) : 0;
+    const rel = E.ioc(prog(t, tRelease, 0.6));
+    latch.style.transform = `translateY(${-rel * 150}px)`; latch.style.opacity = 1 - rel;
+    dkey.style.transform = `translateX(${E.spring(prog(t, tRelease + 0.35, 0.6)) * 30}px)`;
+    dkey.querySelectorAll('path').forEach((p) => (p.style.fill = t > tRelease ? 'var(--khaki)' : 'var(--ink)'));
+
+    // ===== 4d-2: penolakan -> peringatan =====
+    beat(alertP, t, P12[0] + 0.5, 1e9, { dx: -30 });
+    const fk = E.ioc(prog(t, P12[3], 0.55));
+    const fr0 = { x: 1360, y: rowY(rE) - 44 };
+    css(flyRow, { left: lerp(fr0.x, 200, fk) + 'px', top: lerp(fr0.y, 400, fk) + 'px', height: '88px', opacity: t > P12[3] && fk < 1 ? 1 : 0 });
+    show(al, t, P12[3] + 0.5, { dur: 0.35, scale: 0.04, ease: E.spring });
+    dot.style.opacity = t > P12[3] + 1.2 ? 0.35 + 0.65 * blink(t, 1.6) : 0;
+  };
+});
+</script></body></html>
