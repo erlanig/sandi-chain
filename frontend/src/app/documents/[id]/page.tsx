@@ -3,10 +3,18 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { Activity, ArrowLeft, Ban, Copy, Eye, FilePlus2, FileText, Fingerprint, History, Lock, RefreshCw, Send, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/components/auth';
-import { FilePick, Shell, Stamp } from '@/components/shell';
-import { ACTION_LABEL, api, AuditLog, DocDetail, fmtDate, post, shortHash, VerifyResult } from '@/lib/api';
+import { AuditTimeline, Empty, FilePick, HashBox, IconTile, Notice, Panel, PanelHead, Stamp, Verdict } from '@/components/kit';
+import { Shell } from '@/components/shell';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Field, Input, Textarea } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { api, AuditLog, DocDetail, fmtDate, klasLabel, post, shortHash, VerifyResult } from '@/lib/api';
 import { expectAction, fileHash } from '@/lib/signer';
+import { cn } from '@/lib/utils';
 
 export default function DocumentDetailPage() {
   return (
@@ -16,12 +24,21 @@ export default function DocumentDetailPage() {
   );
 }
 
+const FILTERS: { key: string; label: string; match: (a: string) => boolean }[] = [
+  { key: 'semua', label: 'Semua', match: () => true },
+  { key: 'ditolak', label: 'Ditolak', match: (a) => a === 'ACCESS_DENIED' || a === 'VERIFY_TAMPERED' },
+  { key: 'dibuka', label: 'Dibuka', match: (a) => a === 'ACCESS_GRANTED' },
+  { key: 'perubahan', label: 'Perubahan', match: (a) => ['REGISTER', 'NEW_VERSION', 'DISPOSITION', 'REVOKE'].includes(a) },
+  { key: 'verifikasi', label: 'Verifikasi', match: (a) => a === 'VERIFY_OK' || a === 'VERIFY_TAMPERED' },
+];
+
 function Detail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [doc, setDoc] = useState<DocDetail | null>(null);
   const [logs, setLogs] = useState<AuditLog[] | null>(null);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState('semua');
 
   const canAudit = doc && (doc.isOwner || user?.role === 'auditor' || user?.role === 'admin');
 
@@ -47,132 +64,198 @@ function Detail() {
     if (canAudit) loadLogs();
   };
 
-  if (error) return <div className="notice notice-bad">{error}</div>;
-  if (!doc) return <div className="empty">Membaca ledger…</div>;
+  if (error) return <Notice tone="bad">{error}</Notice>;
+  if (!doc) return <Empty>Membaca ledger…</Empty>;
+
+  const manage = doc.isOwner && !doc.revoked;
+  const count = (a: string) => (logs ? logs.filter((l) => l.action === a).length : null);
+  const show = (n: number | null) => (n === null ? '–' : String(n).padStart(2, '0'));
+  const shownLogs = (logs ?? []).filter((l) => FILTERS.find((f) => f.key === filter)!.match(l.action));
+
+  const metrics: [string, string][] = [
+    ['Versi terkini', `v${doc.version}`],
+    ['Dibuka', show(count('ACCESS_GRANTED'))],
+    ['Akses ditolak', show(count('ACCESS_DENIED'))],
+    ['Disposisi', String(doc.recipients.length).padStart(2, '0')],
+  ];
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <div className="row" style={{ marginBottom: 6 }}>
-            <Stamp k={doc.klasifikasi} />
-            {doc.revoked && <span className="pill pill-warn">DICABUT</span>}
-            <span className="faint mono">{doc.docId}</span>
-          </div>
-          <h1>{doc.nomor}</h1>
-          <p>{doc.perihal}</p>
-        </div>
-        {doc.revoked ? (
-          <button className="btn" disabled>
-            Dokumen dicabut
-          </button>
-        ) : (
-          <Link href={`/documents/${doc.docId}/view`} className="btn btn-primary">
-            Buka dokumen
-          </Link>
-        )}
-      </div>
+      <Link href="/documents" className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink">
+        <ArrowLeft className="size-4" /> Daftar dokumen
+      </Link>
 
-      <div className="grid-2">
-        <div className="stack">
-          <div className="card card-pad">
-            <h3 style={{ marginBottom: 12 }}>Catatan on-chain</h3>
-            <dl className="kv">
-              <dt>SHA-256 terkini</dt>
-              <dd className="mono">{doc.hash}</dd>
-              <dt>Versi</dt>
-              <dd>v{doc.version}</dd>
-              <dt>Pembuat</dt>
-              <dd>
-                {doc.ownerName} <span className="faint">({doc.ownerOrg})</span>
-              </dd>
-              <dt>Channel</dt>
-              <dd className="mono">{doc.channel}</dd>
-              <dt>Didaftarkan</dt>
-              <dd>{fmtDate(doc.createdAt)}</dd>
-              <dt>Disposisi</dt>
-              <dd>{doc.recipients.length ? doc.recipients.join(', ') : <span className="faint">–</span>}</dd>
-            </dl>
-          </div>
-
-          <div className="card">
-            <div className="card-head">
-              <h2>Riwayat versi</h2>
-            </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Versi</th>
-                  <th>File</th>
-                  <th>SHA-256</th>
-                </tr>
-              </thead>
-              <tbody>
-                {doc.versions.map((v) => (
-                  <tr key={v.version}>
-                    <td className="mono">v{v.version}</td>
-                    <td>
-                      {v.filename}
-                      <div className="faint">
-                        {(v.size / 1024).toFixed(1)} KB · {fmtDate(v.created_at)}
-                      </div>
-                    </td>
-                    <td className="mono" title={v.sha256}>
-                      {shortHash(v.sha256)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {canAudit && (
-            <div className="card">
-              <div className="card-head">
-                <h2>Jejak akses (immutable)</h2>
-                <button className="btn btn-sm btn-ghost" onClick={loadLogs}>
-                  Muat ulang
-                </button>
-              </div>
-              {!logs ? (
-                <div className="empty">Memuat…</div>
+      {/* ------------------------------------------------ kepala berkas: kartu polos */}
+      <section className="mb-6 overflow-hidden rounded-2xl border border-line bg-panel">
+        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5 p-6 sm:p-8">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Stamp k={doc.klasifikasi} />
+              {doc.revoked ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-warn/10 px-2.5 py-1 text-[12px] font-semibold text-warn">
+                  <Lock className="size-3" /> Dicabut
+                </span>
               ) : (
-                <ul className="timeline">
-                  {logs.map((l) => (
-                    <li key={l.txId}>
-                      <span className="mark" data-a={l.action} />
-                      <div>
-                        <div className="row wrap">
-                          <b>{ACTION_LABEL[l.action] ?? l.action}</b>
-                          <span className="muted">
-                            {l.actor} · {l.jabatan || '-'} · {l.actorOrg}
-                          </span>
-                        </div>
-                        <div className="muted">{l.detail}</div>
-                        <div className="faint mono">
-                          {fmtDate(l.timestamp)} · tx {l.txId.slice(0, 16)}
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-ok/10 px-2.5 py-1 text-[12px] font-semibold text-ok">
+                  <span className="size-1.5 rounded-full bg-current" /> Aktif
+                </span>
               )}
             </div>
-          )}
+
+            <h1 className="mt-4 text-[30px] leading-tight font-bold tracking-[-0.02em] break-words sm:text-[34px]">{doc.nomor}</h1>
+            <p className="mt-1 text-[15px] text-muted">{doc.perihal}</p>
+
+            <p className="mt-4 text-[13px] text-faint">
+              {doc.ownerName} ({doc.ownerOrg}) · {doc.channel} · {fmtDate(doc.createdAt)} · <span className="font-mono text-[12px]">{doc.docId}</span>
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {manage && (
+              <>
+                <DispositionDialog docId={doc.docId} sr={doc.klasifikasi === 'SANGAT_RAHASIA'} onDone={refresh} />
+                <VersionDialog docId={doc.docId} onDone={refresh} />
+                <RevokeDialog docId={doc.docId} nomor={doc.nomor} onDone={refresh} />
+              </>
+            )}
+            {doc.revoked ? (
+              <Button disabled className="h-10 rounded-xl">
+                Dokumen dicabut
+              </Button>
+            ) : (
+              <Button asChild variant="primary" className="h-10 rounded-xl px-5">
+                <Link href={`/documents/${doc.docId}/view`}>
+                  <Eye /> Buka dokumen
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="stack">
+        <dl className="grid grid-cols-2 gap-px border-t border-line bg-line lg:grid-cols-4">
+          {metrics.map(([label, value]) => (
+            <div key={label} className="bg-panel px-6 py-4 sm:px-8 lg:px-6 lg:first:pl-8">
+              <dt className="text-[12.5px] text-muted">{label}</dt>
+              <dd className="mt-1 text-[24px] leading-none font-bold tracking-[-0.02em] tabular-nums">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      {/* ------------------------------------------------ rel info (kiri) + linimasa (kanan) */}
+      <div className="grid items-start gap-6 xl:grid-cols-[370px_minmax(0,1fr)]">
+        <aside className="order-2 grid gap-6 xl:sticky xl:top-28 xl:order-1">
+          <Panel>
+            <PanelHead title="Sidik jari on-chain" description="SHA-256 versi terkini" icon={Fingerprint}>
+              <CopyButton value={doc.hash} />
+            </PanelHead>
+            <div className="p-5">
+              <HashBox value={doc.hash} />
+              <p className="mt-3 flex items-center gap-2 text-[12.5px] text-muted">
+                <Lock className="size-3.5 shrink-0" /> Tercatat di Hyperledger Fabric, tidak bisa diubah.
+              </p>
+            </div>
+          </Panel>
+
+          <Panel className="overflow-hidden">
+            <PanelHead title="Riwayat versi" description={`${doc.versions.length} versi tersimpan`} icon={History} />
+            <ol className="divide-y divide-line">
+              {[...doc.versions].reverse().map((v) => {
+                const now = v.version === doc.version;
+                return (
+                  <li key={v.version} className={cn('flex items-center gap-3 px-5 py-3.5', now && 'bg-accent/[0.05]')}>
+                    <span className={cn('grid size-9 shrink-0 place-items-center rounded-xl text-[13px] font-bold', now ? 'bg-accent text-accent-ink' : 'bg-panel-2 text-muted')}>
+                      v{v.version}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="flex items-center gap-2 truncate text-[13.5px] font-semibold">
+                        <span className="truncate">{v.filename}</span>
+                        {now && <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">Terkini</span>}
+                      </p>
+                      <p className="truncate text-[12.5px] text-muted">
+                        {(v.size / 1024).toFixed(1)} KB · {fmtDate(v.created_at)}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11.5px] text-faint" title={v.sha256}>
+                        {shortHash(v.sha256)}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </Panel>
+
           <VerifyBox docId={doc.docId} />
-          {doc.isOwner && !doc.revoked && (
+        </aside>
+
+        <Panel className="order-1 min-w-0 xl:order-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
+            <div className="flex items-center gap-3">
+              <IconTile icon={Activity} className="size-9" />
+              <div>
+                <h2 className="text-[15px] font-semibold">Jejak akses</h2>
+                <p className="text-[12.5px] text-muted">Dibaca langsung dari ledger, tidak bisa diubah atau dihapus</p>
+              </div>
+            </div>
+            {canAudit && (
+              <Button variant="ghost" size="sm" className="h-9 rounded-xl" onClick={loadLogs}>
+                <RefreshCw /> Muat ulang
+              </Button>
+            )}
+          </div>
+
+          {!canAudit ? (
+            <Empty icon={Lock} className="py-16">
+              <span>
+                <span className="block font-semibold text-ink">Jejak akses dibatasi</span>
+                Hanya pemilik dokumen dan auditor yang dapat melihatnya.
+              </span>
+            </Empty>
+          ) : !logs ? (
+            <Empty>Memuat…</Empty>
+          ) : (
             <>
-              <DispositionBox docId={doc.docId} sr={doc.klasifikasi === 'SANGAT_RAHASIA'} onDone={refresh} />
-              <VersionBox docId={doc.docId} onDone={refresh} />
-              <RevokeBox docId={doc.docId} onDone={refresh} />
+              <div className="flex gap-1 overflow-x-auto border-b border-line px-5 py-3 sm:px-6" role="group" aria-label="Saring jejak akses">
+                {FILTERS.map((f) => {
+                  const n = logs.filter((l) => f.match(l.action)).length;
+                  return (
+                    <button
+                      key={f.key}
+                      aria-pressed={filter === f.key}
+                      onClick={() => setFilter(f.key)}
+                      className={cn(
+                        'flex h-9 shrink-0 items-center gap-2 rounded-xl px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors',
+                        filter === f.key ? 'bg-accent text-accent-ink shadow-sm' : 'text-muted hover:bg-panel-2 hover:text-ink',
+                      )}
+                    >
+                      {f.label}
+                      <span className={cn('rounded-full px-1.5 text-[11.5px] tabular-nums', filter === f.key ? 'bg-black/15' : 'bg-panel-2')}>{n}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <AuditTimeline logs={shownLogs} />
             </>
           )}
-        </div>
+        </Panel>
       </div>
     </>
+  );
+}
+
+function CopyButton({ value }: { value: string }) {
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success('Hash disalin.');
+    } catch {
+      toast.error('Tidak bisa menyalin di browser ini.');
+    }
+  }
+  return (
+    <Button variant="ghost" size="sm" className="h-8 rounded-lg" onClick={copy}>
+      <Copy /> Salin
+    </Button>
   );
 }
 
@@ -200,141 +283,193 @@ function VerifyBox({ docId }: { docId: string }) {
   }
 
   return (
-    <div className="card card-pad stack">
-      <h3>Verifikasi keaslian</h3>
-      <p className="muted" style={{ margin: 0 }}>
-        Unggah salinan yang beredar. Sidik jarinya dibandingkan dengan ledger.
-      </p>
-      <FilePick file={file} onChange={setFile} hint="File pembanding (apa pun formatnya)" />
-      <button className="btn" disabled={!file || busy} onClick={run}>
-        {busy ? 'Memeriksa…' : 'Verifikasi'}
-      </button>
-      {error && <div className="notice notice-bad">{error}</div>}
-      {res && (
-        <div className={`notice ${res.authentic ? 'notice-ok' : 'notice-bad'}`}>
-          <b>{res.authentic ? 'ASLI' : 'TIDAK COCOK'}</b>
-          <div>{res.message}</div>
-          <div className="faint mono" style={{ marginTop: 4 }}>
-            {shortHash(res.hash, 16)}
-          </div>
-        </div>
-      )}
-    </div>
+    <Panel>
+      <PanelHead title="Verifikasi keaslian" description="Bandingkan salinan dengan ledger" icon={ShieldCheck} />
+      <div className="grid gap-3 p-5">
+        <FilePick file={file} onChange={setFile} hint="File pembanding (apa pun formatnya)" />
+        <Button className="h-10 rounded-xl" disabled={!file || busy} onClick={run}>
+          {busy ? 'Memeriksa…' : 'Verifikasi'}
+        </Button>
+        {error && <Notice tone="bad">{error}</Notice>}
+        {res && <Verdict authentic={res.authentic} message={res.message} />}
+      </div>
+    </Panel>
   );
 }
 
-function DispositionBox({ docId, sr, onDone }: { docId: string; sr: boolean; onDone: () => void }) {
-  const [people, setPeople] = useState<{ username: string; nama: string; jabatan: string; clearance: string }[]>([]);
+type Person = { username: string; nama: string; jabatan: string; clearance: string };
+
+function DispositionDialog({ docId, sr, onDone }: { docId: string; sr: boolean; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [people, setPeople] = useState<Person[]>([]);
   const [recipient, setRecipient] = useState('');
   const [catatan, setCatatan] = useState('');
-  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api<typeof people>('/auth/personel').then(setPeople).catch(() => undefined);
-  }, []);
+    if (open) api<Person[]>('/auth/personel').then(setPeople).catch(() => undefined);
+  }, [open]);
 
   async function send() {
-    setMsg('');
+    setError('');
+    setBusy(true);
     try {
       expectAction('AddDisposition', [docId, recipient, null, catatan]);
       await post(`/documents/${docId}/disposition`, { recipient, catatan });
-      setMsg('Disposisi tercatat di ledger.');
+      toast.success('Disposisi tercatat di ledger.');
       setRecipient('');
       setCatatan('');
+      setOpen(false);
       onDone();
     } catch (e) {
-      setMsg((e as Error).message);
-    }
-  }
-
-  return (
-    <div className="card card-pad stack">
-      <h3>Disposisi</h3>
-      {sr && <p className="muted" style={{ margin: 0 }}>Dokumen SANGAT RAHASIA hanya bisa dibuka personel yang didisposisikan.</p>}
-      <select className="input" value={recipient} onChange={(e) => setRecipient(e.target.value)}>
-        <option value="">Pilih personel…</option>
-        {people.map((p) => (
-          <option key={p.username} value={p.username}>
-            {p.nama} — {p.jabatan} ({p.clearance.replace('_', ' ')})
-          </option>
-        ))}
-      </select>
-      <textarea className="input" placeholder="Catatan disposisi" value={catatan} onChange={(e) => setCatatan(e.target.value)} />
-      <button className="btn" disabled={!recipient} onClick={send}>
-        Kirim disposisi
-      </button>
-      {msg && <div className="notice">{msg}</div>}
-    </div>
-  );
-}
-
-function VersionBox({ docId, onDone }: { docId: string; onDone: () => void }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [msg, setMsg] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function send() {
-    if (!file) return;
-    setBusy(true);
-    setMsg('');
-    const fd = new FormData();
-    fd.append('file', file);
-    try {
-      expectAction('AddVersion', [docId, await fileHash(file)]);
-      await post(`/documents/${docId}/versions`, fd);
-      setFile(null);
-      setMsg('Versi baru tercatat. Hash versi lama tetap tersimpan di ledger.');
-      onDone();
-    } catch (e) {
-      setMsg((e as Error).message);
+      setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="card card-pad stack">
-      <h3>Revisi</h3>
-      <FilePick file={file} onChange={setFile} />
-      <button className="btn" disabled={!file || busy} onClick={send}>
-        {busy ? 'Menyimpan…' : 'Unggah versi baru'}
-      </button>
-      {msg && <div className="notice">{msg}</div>}
-    </div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="h-10 rounded-xl">
+          <Send /> Disposisi
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        title="Disposisi"
+        description={sr ? 'Dokumen SANGAT RAHASIA hanya bisa dibuka personel yang didisposisikan.' : 'Teruskan dokumen ini kepada personel lain.'}
+      >
+        <Field label="Penerima">
+          <Select value={recipient} onValueChange={setRecipient}>
+            <SelectTrigger aria-label="Penerima">
+              <SelectValue placeholder="Pilih personel…" />
+            </SelectTrigger>
+            <SelectContent>
+              {people.map((p) => (
+                <SelectItem key={p.username} value={p.username}>
+                  {p.nama} — {p.jabatan} ({klasLabel(p.clearance)})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Catatan disposisi" htmlFor="catatan">
+          <Textarea id="catatan" value={catatan} onChange={(e) => setCatatan(e.target.value)} />
+        </Field>
+        {error && <Notice tone="bad">{error}</Notice>}
+        <div className="flex justify-end gap-2">
+          <DialogClose asChild>
+            <Button variant="ghost">Batal</Button>
+          </DialogClose>
+          <Button variant="primary" disabled={!recipient || busy} onClick={send}>
+            {busy ? 'Mengirim…' : 'Kirim disposisi'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function RevokeBox({ docId, onDone }: { docId: string; onDone: () => void }) {
-  const [alasan, setAlasan] = useState('');
-  const [confirm, setConfirm] = useState(false);
+function VersionDialog({ docId, onDone }: { docId: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   async function send() {
-    expectAction('RevokeDocument', [docId, alasan]);
-    await post(`/documents/${docId}/revoke`, { alasan });
-    onDone();
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      expectAction('AddVersion', [docId, await fileHash(file)]);
+      await post(`/documents/${docId}/versions`, fd);
+      setFile(null);
+      toast.success('Versi baru tercatat.', { description: 'Hash versi lama tetap tersimpan di ledger.' });
+      setOpen(false);
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <div className="card card-pad stack">
-      <h3>Cabut dokumen</h3>
-      <p className="muted" style={{ margin: 0 }}>
-        Setelah dicabut, dokumen tidak bisa dibuka siapa pun. Tidak bisa dibatalkan.
-      </p>
-      <input className="input" placeholder="Alasan pencabutan" value={alasan} onChange={(e) => setAlasan(e.target.value)} />
-      {!confirm ? (
-        <button className="btn btn-danger" disabled={!alasan} onClick={() => setConfirm(true)}>
-          Cabut…
-        </button>
-      ) : (
-        <div className="row">
-          <button className="btn btn-danger" onClick={send}>
-            Ya, cabut permanen
-          </button>
-          <button className="btn btn-ghost" onClick={() => setConfirm(false)}>
-            Batal
-          </button>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="h-10 rounded-xl">
+          <FilePlus2 /> Revisi
+        </Button>
+      </DialogTrigger>
+      <DialogContent title="Revisi" description="Unggah versi baru. Sidik jari versi lama tetap tersimpan dan tetap bisa diverifikasi.">
+        <FilePick file={file} onChange={setFile} />
+        {error && <Notice tone="bad">{error}</Notice>}
+        <div className="flex justify-end gap-2">
+          <DialogClose asChild>
+            <Button variant="ghost">Batal</Button>
+          </DialogClose>
+          <Button variant="primary" disabled={!file || busy} onClick={send}>
+            {busy ? 'Menyimpan…' : 'Unggah versi baru'}
+          </Button>
         </div>
-      )}
-    </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RevokeDialog({ docId, nomor, onDone }: { docId: string; nomor: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [alasan, setAlasan] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function send() {
+    setBusy(true);
+    setError('');
+    try {
+      expectAction('RevokeDocument', [docId, alasan]);
+      await post(`/documents/${docId}/revoke`, { alasan });
+      toast.success('Dokumen dicabut.');
+      setOpen(false);
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="danger" className="h-10 rounded-xl">
+          <Ban /> Cabut
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        title="Cabut dokumen"
+        description={
+          <>
+            Setelah dicabut, <b className="text-ink">{nomor}</b> tidak bisa dibuka siapa pun. Tidak bisa dibatalkan.
+          </>
+        }
+      >
+        <Field label="Alasan pencabutan" htmlFor="alasan">
+          <Input id="alasan" value={alasan} onChange={(e) => setAlasan(e.target.value)} />
+        </Field>
+        {error && <Notice tone="bad">{error}</Notice>}
+        <div className="flex justify-end gap-2">
+          <DialogClose asChild>
+            <Button variant="ghost">Batal</Button>
+          </DialogClose>
+          <Button variant="danger-solid" disabled={!alasan || busy} onClick={send}>
+            {busy ? 'Mencabut…' : 'Ya, cabut permanen'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
