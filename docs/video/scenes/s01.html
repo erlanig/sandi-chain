@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>01 Pertanyaan</title>
+<link rel="stylesheet" href="../film/fonts.css"><link rel="stylesheet" href="../film/film.css">
+<script src="../film/lib.js"></script>
+<style>
+  .doc { left: 636px; top: 126px; width: 600px; height: 776px; background: var(--paper); color: var(--paper-ink); border-radius: 6px;
+         box-shadow: 0 50px 100px rgba(0,0,0,.55), 0 2px 0 rgba(255,255,255,.4) inset; padding: 64px 56px; }
+  .doc .mark { position: absolute; right: 56px; bottom: 56px; font: 500 22px/1.4 var(--mono); color: #5a6150; }
+  .doc .no { margin-top: 170px; font: 600 34px/1.2 var(--sans); }
+  .doc .hal { margin-top: 10px; font: 700 34px/1.18 var(--sans); }
+  .doc .rule { margin: 26px 0 22px; height: 2px; background: var(--paper-ink); opacity: .85; }
+  .doc p { font: 400 23px/1.6 var(--sans); color: #2b3125; }
+  .doc .sig { position: absolute; left: 56px; bottom: 56px; font: 500 22px/1.4 var(--mono); color: #5a6150; }
+  .names { left: 120px; top: 250px; width: 470px; }
+  .names .row { display: flex; align-items: center; gap: 18px; height: 62px; font: 600 34px/1 var(--sans); color: var(--ink); }
+  .names .bar { height: 30px; border-radius: 3px; background: var(--ink); }
+  .who { left: 120px; top: 660px; font-size: 140px; color: var(--ink); }
+  .log { left: 1276px; top: 330px; width: 520px; font: 500 28px/1 var(--mono); }
+  .log .ln { height: 58px; line-height: 58px; white-space: pre; color: var(--ink); }
+  .log .ln b { font-weight: 500; color: var(--khaki); }
+  .ctx { left: 120px; top: 90px; font: 500 28px/1 var(--mono); letter-spacing: .06em; color: var(--dim); }
+</style></head><body><script>
+F.boot(1, (st, F) => {
+  const { el, svg, words, reveal, show, stamp, draw, prog, E, lerp, blink, S, FR } = F;
+  const ctx = el('div', 'abs ctx', st, 'KARTIKA CYBER HACKATHON 2026');
+  const cam = el('div', 'abs', st); cam.style.inset = '0';
+  const doc = el('div', 'abs doc', cam, `
+        <div class="no">Nomor R/001/XI/2026</div>
+    <div class="hal">Rencana Operasi Latihan Gabungan</div>
+    <div class="rule"></div>
+    <p>Latihan gabungan dilaksanakan pada minggu ketiga November 2026 di daerah latihan yang telah ditentukan. Satuan pelaksana menyiapkan personel, alat komunikasi, dan logistik sesuai lampiran.</p>
+    <div class="sig">Danyon · letkol.arya</div>`);
+  const st1 = el('div', 'stamp', cam, 'Sangat Rahasia');
+  F.css(st1, { left: '702px', top: '168px', fontSize: '72px' });
+
+  // S02: enam nama disamarkan (redaksi disengaja) + "Siapa?"
+  const names = el('div', 'abs names', st);
+  const ranks = [['Letkol', 210], ['Mayor', 250], ['Kapten', 190], ['Kapten', 270], ['Serka', 230], ['Sertu', 200]];
+  const rows = ranks.map(([r, w]) => el('div', 'row', names, `<span>${r}</span><span class="bar" style="width:${w}px"></span>`));
+  const who = el('div', 'abs title who', st);
+  const whoW = words(who, 'Siapa?');
+
+  // S03: dokumen menulis sendiri di tepi kanan
+  const lines = ['19.49 · letkol.arya · <b>DIBUAT</b>', '19.51 · kapten.andi · <b>DITOLAK</b>', '19.52 · letkol.arya · <b>DISPOSISI</b>', '19.53 · kapten.andi · <b>DIBUKA</b>', 'tx e4bc38b0d391f396…'];
+  const log = el('div', 'abs log', st);
+  const lns = lines.map((h) => el('div', 'ln', log, h));
+  lns[1].querySelector('b').style.color = 'var(--red)';
+  const ink = svg('svg', { width: 1920, height: 1080, class: 'abs' }, st);
+  ink.style.left = 0; ink.style.top = 0;
+  const lnk = svg('path', { d: 'M1236 360 H1262', stroke: 'var(--khaki)', 'stroke-width': 3, fill: 'none' }, ink);
+  const rail = svg('path', { d: 'M1262 330 V620', stroke: 'var(--hair2)', 'stroke-width': 2, fill: 'none' }, ink);
+  const caret = el('div', 'abs', st); F.css(caret, { width: '16px', height: '32px', background: 'var(--khaki)' });
+
+  const s1 = S('S01'), s2 = S('S02'), s3 = S('S03'), sc = F.scene.sentences.find((x) => x.id === 'S03');
+  F.cue('stamp', s1 + 0.28);
+  const lt = (i) => s3 + 0.15 + i * 0.95;
+  lines.forEach((_, i) => F.cue('tick', lt(i)));
+
+  return (t) => {
+    show(ctx, t, 0.2, { dur: 0.8 });
+    // kamera: dolly sangat lambat 1.000 -> 1.03
+    const z = lerp(1, 1.03, E.lin(t / F.scene.duration));
+    cam.style.transform = `scale(${z})`; cam.style.transformOrigin = '936px 510px';
+    const k = E.spring(prog(t, 0.1, 1.0));
+    doc.style.transform = `translateY(${(1 - k) * 60}px)`; doc.style.opacity = Math.min(1, prog(t, 0.1, 0.5));
+    stamp(st1, t, s1, -5);
+    // S02
+    rows.forEach((r, i) => show(r, t, s2 + i * 5 * FR, { dur: 0.45, dy: 12, out: s3 - 0.2 + i * 2 * FR }));
+    reveal(whoW, t, F.scene.sentences[1].phr[1] - 0.05, { dy: 40, dur: 0.6, out: s3 - 0.1 });
+    // S03: garis tinta + baris log satu per satu
+    draw(lnk, t, s3, 0.35, E.oc);
+    draw(rail, t, s3 + 0.1, 0.6);
+    lns.forEach((l, i) => show(l, t, lt(i), { dur: 0.35, dx: -14 }));
+    const last = lns.findLastIndex((_, i) => t >= lt(i));
+    if (last >= 0 && t >= lt(lines.length - 1) + 0.4) {
+      caret.style.opacity = blink(t);
+      caret.style.left = 1276 + 362 + 'px'; caret.style.top = 330 + 4 * 58 + 13 + 'px';
+    } else caret.style.opacity = 0;
+  };
+});
+</script></body></html>

@@ -1,0 +1,59 @@
+{
+ "risk_row_budi": {
+  "x": 305,
+  "y": 515.5,
+  "w": 1310,
+  "h": 72.5
+ },
+ "risk_row_andi": {
+  "x": 305,
+  "y": 589,
+  "w": 1310,
+  "h": 72.5
+ },
+ "risk_open_panel": {
+  "x": 305,
+  "y": 515.5,
+  "w": 1310,
+  "h": 441.75
+ },
+ "risk_chip": {
+  "x": 433.25,
+  "y": 672.5,
+  "w": 97,
+  "h": 21.25
+ },
+ "risk_chip_href": "/forensics?txId=ac36d7e623c47c62652e36208344ae001375c4ebae87b8151da8098dbd769f0a",
+ "trace_input": {
+  "x": 325,
+  "y": 411.25,
+  "w": 358,
+  "h": 40
+ },
+ "trace_button": {
+  "x": 325,
+  "y": 509.25,
+  "w": 358,
+  "h": 44
+ },
+ "trace_person": {
+  "x": 809,
+  "y": 268.25,
+  "w": 643.96875,
+  "h": 27.5
+ },
+ "trace_grant": {
+  "x": 0,
+  "y": 0,
+  "w": 1920,
+  "h": 2865.4375
+ },
+ "trace_full_h": 2865,
+ "trace_timeline_hl": null,
+ "trace_pdf_notice": {
+  "x": 745,
+  "y": 239.5,
+  "w": 854,
+  "h": 20.25
+ }
+}

@@ -1,0 +1,80 @@
+{
+ "docSha256": {
+  "value": "4b76064fc126ee9608bf4039836cf593bdef7eba3f3ae7356bc87132f1f4adf1",
+  "cmd": "shasum -a 256 docs/video/assets/R-001-XI-2026.txt"
+ },
+ "copySha256": {
+  "value": "5811d16f11399b55b7b88116335c41b1a37bb99f26b19f38e90da507eab5151b",
+  "cmd": "byte 200 XOR 0x01, lalu sha256",
+  "byte": 200,
+  "char": [
+   "d",
+   "e"
+  ]
+ },
+ "chain": {
+  "blocks": [
+   "DOC_CREATED R/001/XI/2026 v1",
+   "DISPOSITION kepada kapten.andi",
+   "ACCESS_GRANTED kapten.andi",
+   "ACCESS_DENIED serka.budi"
+  ],
+  "hashes": [
+   "bd49451bc3336c0aa027c227277ec3fefcac4556374a66b6c13bddceb70ca882",
+   "9b8ecba2b549d07b7639a02e924fd15383194ad08a041f47943b8c3c1367c4b2",
+   "0e527c1da37a28742b8d120c0d2357162c78b1477cc3c79bc1768f610dd450c0",
+   "14ccc5c3f42be96369cfc05f8e7b7f56d3d56b975819e1dd4ab4e311d422c677"
+  ],
+  "tampered": [
+   "DOC_CREATED R/001/XI/2026 v1",
+   "DISPOSITION kepada serka.budi",
+   "ACCESS_GRANTED kapten.andi",
+   "ACCESS_DENIED serka.budi"
+  ],
+  "tamperedHashes": [
+   "bd49451bc3336c0aa027c227277ec3fefcac4556374a66b6c13bddceb70ca882",
+   "de6641b25b51546d6d6fc7500319f13dbbfb7bde35cf916de26dcd54e08411b0",
+   "1a4d5f600233b7d4072e34d51e7aabef7843ac54679137589baeb9472ee9393d",
+   "93c0e6f7a6eeb1eb7118f54382c4f68679f6bff1b04bba9dce8dc9ebae05980b"
+  ],
+  "cmd": "hash_i = sha256(hash_{i-1} + isi_i), hash_0 = 0x00.."
+ },
+ "backendTests": {
+  "value": 44,
+  "cmd": "cd backend && npm test",
+  "result": "tests 44, pass 44, fail 0"
+ },
+ "chaincodeTests": {
+  "value": 11,
+  "cmd": "cd chaincode/sandichain && go test ./... -v | grep -c '--- PASS'",
+  "result": "11 PASS, 0 FAIL"
+ },
+ "ciJobs": {
+  "value": 3,
+  "cmd": "gh pr checks 2",
+  "result": "backend pass, chaincode pass, frontend pass"
+ },
+ "grantTx": {
+  "value": "e4bc38b0d391f3966a6a3dae6ad17a71aca12874a4292282c9d5ae3e00af5c66",
+  "source": "docs/video/tools/mock-api.mjs (DATA SIMULASI)"
+ },
+ "risk": {
+  "serka.budi": [
+   84,
+   "kritis"
+  ],
+  "kapten.andi": [
+   56,
+   "tinggi"
+  ],
+  "source": "backend/src/forensics/behavior.ts atas data mock"
+ },
+ "keyguardWindowSec": {
+  "value": 120,
+  "source": "README"
+ },
+ "rules": {
+  "value": 7,
+  "source": "backend/src/forensics/behavior.ts"
+ }
+}

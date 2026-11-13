@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 100" width="960" height="400" role="img" aria-label="Lambang SANDI-Chain">
+  <!-- Sumber kebenaran: komponen Logo di frontend/src/components/kit.tsx. Warna di bawah = versi untuk latar gelap
+       (sama dengan footer dan sidebar portal). Ubah lewat variabel CSS jika perlu. -->
+  <style>
+    :root { --logo-red: #e04a3f; --logo-wing: #ecebe0; --logo-gold: #d4a72c; }
+  </style>
+  <mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="100">
+    <rect width="240" height="100" fill="#fff"/>
+    <g fill="#000" stroke="#000" stroke-width="5">
+      <path d="M120 20 126.8 40.7 148.5 40.7 130.9 53.6 137.6 74.3 120 61.5 102.4 74.3 109.1 53.6 91.5 40.7 113.2 40.7Z"/>
+      <path d="M99.3 84 102.4 74.3 120 61.5 137.6 74.3 140.7 84V100H99.3Z"/>
+    </g>
+    <path fill="#000" d="M0 0H1.1L45.6 100H0ZM240 0H238.9L194.4 100H240Z"/>
+  </mask>
+  <g mask="url(#m)" fill="none" stroke-linejoin="round" stroke-width="13">
+    <path stroke="var(--logo-red)" d="M4 22H70L86 38H154L170 22H236"/>
+    <path fill="var(--logo-red)" stroke="none" d="M106 33 112 13Q113.5 7 120 7H128Q131 7 132 10L133 13H139L142 21H133.5L137 33Z"/>
+    <path stroke="var(--logo-wing)" d="M12 40H62L78 56H112M228 40H178L162 56H128"/>
+    <path stroke="var(--logo-wing)" d="M20 58H54L70 74H110M220 58H186L170 74H130"/>
+  </g>
+  <path fill="none" stroke="var(--logo-gold)" stroke-width="7" d="M103 87 120 72 137 87"/>
+  <path fill="var(--logo-gold)" d="M108 98 120 87.5 132 98Z"/>
+</svg>

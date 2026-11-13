@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>02 Masalah</title>
+<link rel="stylesheet" href="../film/fonts.css"><link rel="stylesheet" href="../film/film.css">
+<script src="../film/lib.js"></script>
+<style>
+  .win { left: 290px; top: 150px; width: 1340px; height: 730px; }
+  .bar { position: absolute; left: 0; right: 0; top: 0; height: 84px; border-bottom: 1px solid var(--hair); display: flex; align-items: center; padding: 0 40px; gap: 18px; }
+  .lbl { font: 600 34px/1 var(--sans); letter-spacing: .02em; }
+  .lbl b { font-weight: 600; color: var(--khaki); }
+  .file { margin-left: auto; font: 400 28px/1 var(--mono); color: var(--dim); }
+  .rows { position: absolute; left: 0; right: 0; top: 112px; }
+  .r { position: relative; height: 62px; line-height: 62px; padding: 0 44px; font: 400 32px/62px var(--mono); white-space: pre; overflow: hidden; color: var(--ink); }
+  .r .hl { position: absolute; inset: 4px 24px; border-radius: 8px; background: rgba(217,56,47,.28); border: 2px solid var(--red); opacity: 0; }
+  .r span { position: relative; }
+  .prompt { position: absolute; left: 44px; bottom: 34px; font: 400 32px/1 var(--mono); color: var(--khaki); white-space: pre; }
+  .zero { right: 690px; top: 380px; font-size: 180px; text-align: right; white-space: nowrap; }
+  .cur { width: 30px; height: 150px; background: var(--khaki); }
+</style></head><body><script>
+F.boot(2, (st, F) => {
+  const { el, words, reveal, show, prog, E, lerp, blink, S, FR, clamp } = F;
+  const win = el('div', 'panel win', st);
+  const bar = el('div', 'bar', win);
+  const lbl = el('div', 'lbl', bar); const lblW = words(lbl, 'SERVER · administrator');
+  lblW[0].style.color = 'var(--khaki)';
+  const file = el('div', 'file', bar, '/var/log/akses.log');
+  const rowsEl = el('div', 'rows', win);
+  const data = [
+    ['2026-11-07 19:49', 'DOC_CREATED   ', 'letkol.arya'],
+    ['2026-11-07 19:51', 'ACCESS_DENIED ', 'kapten.andi'],
+    ['2026-11-07 19:52', 'DISPOSITION   ', 'letkol.arya'],
+    ['2026-11-07 19:53', 'ACCESS_GRANTED', 'kapten.andi'],
+    ['2026-11-07 19:54', 'VERIFY_FAIL   ', 'kapten.andi'],
+    ['2026-11-07 19:55', 'DOC_UPDATED   ', 'letkol.arya'],
+    ['2026-11-07 19:59', 'ACCESS_DENIED ', 'serka.budi'],
+    ['2026-11-07 20:02', 'ACCESS_DENIED ', 'serka.budi'],
+  ];
+  const rows = data.map(([d, a, u]) => {
+    const r = el('div', 'r', rowsEl);
+    r.hl = el('div', 'hl', r);
+    r.txt = el('span', '', r, `${d}  ${a}  `);
+    r.who = el('span', '', r, u);
+    return r;
+  });
+  const prompt = el('div', 'prompt', win);
+  const PROMPT = '$ sudo nano /var/log/akses.log';
+  const zero = el('div', 'abs title zero', st); const zW = words(zero, '0 bukti');
+  const cur = el('div', 'abs cur', st);
+
+  const s4 = S('S04'), P5 = F.scene.sentences[1].phr; // [hapus, pinjam, bocor, nol]
+  const tDel = P5[0], tSwap = P5[1], tFade = P5[2], tZero = P5[3];
+  const DEL = 6, SWAP = 3;
+  rows.forEach((_, i) => F.cue('tick', 0.35 + i * 0.22));
+  F.cue('alert1', tDel + 0.02);
+  const FROM = 'kapten.andi', TO = 'mayor.dewi';
+
+  return (t) => {
+    const k = E.spring(prog(t, 0.05, 0.9));
+    win.style.transform = `translateY(${(1 - k) * 40}px) scale(${lerp(1, 1.025, t / 22)})`;
+    win.style.opacity = clamp(prog(t, 0.05, 0.4)) * (1 - E.ioc(prog(t, tFade + 0.5, 0.8)));
+    reveal(lblW, t, s4, { dur: 0.45 });
+    show(file, t, s4 + 0.35, { dur: 0.5 });
+    // baris masuk satu per satu
+    let y = 0;
+    rows.forEach((r, i) => {
+      show(r, t, 0.35 + i * 0.22, { dur: 0.3, dx: -12, out: tFade + i * 3 * FR, outDur: 0.35 });
+      if (i === DEL) {
+        r.hl.style.opacity = clamp(prog(t, tDel, 0.12)) * (1 - prog(t, tDel + 0.45, 0.2));
+        const c = E.ioc(prog(t, tDel + 0.55, 0.4));
+        r.style.height = 62 * (1 - c) + 'px';
+        r.txt.style.opacity = r.who.style.opacity = 1 - prog(t, tDel + 0.45, 0.15);
+      }
+      if (i === SWAP) {
+        // huruf demi huruf: kapten.andi -> mayor.dewi
+        const n = Math.floor(clamp((t - tSwap) / (2 * FR), 0, 99));
+        const L = Math.max(FROM.length, TO.length);
+        let s = '';
+        for (let j = 0; j < L; j++) s += j < n ? (TO[j] ?? '') : (FROM[j] ?? '');
+        r.who.textContent = s;
+        r.who.style.color = t >= tSwap && t < tSwap + 1.4 ? 'var(--gold-hi)' : 'var(--ink)';
+      }
+    });
+    // prompt administrator di jeda: membuka berkas log
+    const pk = clamp((t - 10.1) / 1.6);
+    const typed = PROMPT.slice(0, Math.floor(pk * PROMPT.length));
+    prompt.textContent = t >= 9.9 ? typed + (blink(t) && t < tDel ? '▌' : ' ') : '';
+    prompt.style.opacity = 1 - prog(t, tFade, 0.3);
+    // kursor + 0 bukti
+    reveal(zW, t, tZero, { dy: 40, dur: 0.6, out: 21.0 });
+    const ck = prog(t, tFade + 0.9, 0.4);
+    cur.style.left = '1262px'; cur.style.top = '402px';
+    cur.style.opacity = ck > 0 ? blink(t - tFade) * clamp(ck * 3) : 0;
+  };
+});
+</script></body></html>

@@ -19,6 +19,8 @@ Prototype pengelolaan dokumen klasifikasi (BIASA, TERBATAS, RAHASIA, SANGAT RAHA
 | **Konsistensi ledger ↔ DB** | Metadata disimpan `pending` sebelum transaksi Fabric. Sukses → `committed`; ditolak → dihapus beserta objeknya. Kalau status commit tidak pasti (timeout), rekonsiliasi berkala mencocokkan dengan ledger. |
 | **Early warning real time** | Chaincode memancarkan event, *Sentinel* di backend meneruskannya ke dashboard (SSE), file JSON untuk Wazuh, dan webhook. |
 | **Verifikasi keaslian** | Unggah salinan yang beredar → ASLI / cocok versi lama / TIDAK COCOK (perubahan 1 bit pun terdeteksi). |
+| **Telusuri kebocoran** (`/forensics`) | Dari jejak di salinan bocoran ke pembaca di ledger: masukkan `txId` dari footer watermark, NRP/nama, atau **unggah PDF bocoran** (txId, ID dokumen, dan NRP dibaca dari metadata, juga pada dokumen RAHASIA yang dirasterisasi). Hasilnya: siapa, kapan, dokumen apa, lewat disposisi siapa, pembaca lain, dan rantai akses dokumen, plus laporan siap salin. Khusus auditor. |
+| **Deteksi perilaku mencurigakan** (tab *Risiko personel*) | Skor risiko 0–100 per personel dari tujuh aturan yang bisa dijelaskan (penolakan beruntun, menyisir dokumen, membuka dokumen massal/berulang, di luar jam dinas, salinan tidak cocok, dll.) di atas jejak ledger, lengkap dengan txId bukti. Pindai berkala memunculkan alert `SuspiciousBehavior` (tingkat tinggi/kritis) ke dashboard, Wazuh, dan webhook. Tanpa AI: setiap skor dapat diperiksa ulang. |
 | **Envelope encryption** | AES-256-GCM per dokumen, kunci dibungkus Vault Transit (kunci *derived* dengan konteks `channel/docId`). Admin storage/DB tidak bisa membaca isi. |
 | **KeyGuard: tidak ada dekripsi tanpa jejak ledger** | Backend API tidak punya izin decrypt di Vault. Kunci dokumen hanya dilepas oleh layanan KeyGuard terpisah jika ledger memuat `ACCESS_GRANTED` yang baru (≤120 detik) dan belum pernah dipakai, untuk channel/dokumen yang sama. Backend yang dibobol pun tidak bisa membuka dokumen diam-diam. |
 | **Tamper-evident terhadap admin storage** | Ciphertext yang diubah di storage ditolak saat dibuka dan memicu alert `StorageIntegrity`. |
@@ -167,6 +169,9 @@ Tips demo live: buka `/security` sebagai `auditor.pam` di satu jendela, lalu di 
 | GET | `/api/documents/:id/history` | History key langsung dari ledger |
 | GET | `/api/audit`, `/api/alerts` | Auditor |
 | GET | `/api/alerts/stream` | SSE real time (auditor) |
+| GET | `/api/forensics/risk` | Skor risiko per personel + sinyal dan txId bukti (auditor) |
+| GET | `/api/forensics/trace` | `?txId=` (awalan ≥ 8 hex) atau `?nrp=`/`?nama=` + `&docId=`: pembaca, dokumen, disposisi, rantai akses (auditor) |
+| POST | `/api/forensics/trace/file` | multipart `file` (PDF bocoran): baca jejak dari metadata lalu telusuri (auditor) |
 | GET | `/api/sign/info` | Mode tanda tangan + sidik jari sertifikat user |
 | GET | `/api/sign/next` | Long-poll: pesan Fabric berikutnya yang perlu ditandatangani perangkat |
 | POST | `/api/sign/:id` | `{ signature }` (r‖s base64) atau `{ refuse }` |
@@ -188,12 +193,33 @@ Tips demo live: buka `/security` sebagai `auditor.pam` di satu jendela, lalu di 
 
 Aturan akses ada di fungsi murni `CanAccess` (membuka isi) dan `CanView` (melihat metadata/verifikasi) di `helpers.go`, diuji di `rules_test.go`.
 
+## Telusuri kebocoran dan deteksi perilaku
+
+Dua fitur forensik di atas jejak ledger (backend: `src/forensics/`, frontend: `/forensics` dan tab *Risiko personel* di `/security`).
+
+**Alur kasus bocor.** Setiap tampilan dokumen menulis `ACCESS_GRANTED` ke ledger, dan txId-nya ikut ditanam di watermark (16 karakter pertama di footer) dan di metadata PDF. Dari salah satunya, auditor mendapat pembaca, waktu, dan rantai akses dokumen itu. Foto layar tidak punya metadata, jadi dicari lewat txId/NRP di watermark. Pencabutan dokumen tetap hak pemilik (aturan chaincode); halaman memberi laporan untuk diteruskan.
+
+**Aturan risiko** (poin dijumlahkan, maks 100; rendah < 25, sedang 25–49, tinggi 50–74, kritis ≥ 75):
+
+| Aturan | Pemicu | Poin |
+|---|---|---|
+| Penolakan beruntun | ≥ 3 `ACCESS_DENIED` dalam 10 menit | 30 (+5 tiap tambahan, maks 40) |
+| Menyisir banyak dokumen | ≥ 3 dokumen berbeda ditolak | 25 |
+| Membuka dokumen massal | ≥ 5 dokumen berbeda dibuka dalam 15 menit | 30 |
+| Membuka dokumen berulang | satu dokumen ≥ 4× dalam 10 menit | 15 |
+| Di luar jam dinas | akses di luar `WORK_START_HOUR`–`WORK_END_HOUR` WIB | 8 per akses, maks 24 |
+| Salinan tidak cocok | `VERIFY_TAMPERED` 1× / ≥ 2× | 10 / 25 |
+| Penolakan berulang | ≥ 5 `ACCESS_DENIED` dalam 24 jam | 15 |
+
+Pengaturan di `backend/.env`: `BEHAVIOR_INTERVAL_SEC` (default 60, `0` mematikan pemindaian berkala), `BEHAVIOR_ALERT_LEVEL` (`sedang`/`tinggi`/`kritis`), `WORK_START_HOUR`, `WORK_END_HOUR`. Alert dibatasi satu per pelaku, tingkat, dan kombinasi aturan per hari supaya tidak membanjiri unit pengamanan.
+
 ## Pengujian
 
 ```bash
 cd chaincode/sandichain && go test ./...     # aturan akses + transaksi di ledger tiruan (penolakan tercatat, need-to-know, paginasi)
 cd backend && npm test                        # enkripsi + pengikatan konteks DEK, tamper GCM, watermark (termasuk raster), aturan KeyGuard,
                                               # tanda tangan di perangkat (kartu, kebijakan, broker, FabricService mode client)
+                                              # deteksi perilaku (aturan, ambang, jam dinas WIB), telusuri kebocoran (termasuk render nyata + baca ulang metadata)
 cd backend && node scripts/demo.mjs           # end-to-end di jaringan Fabric asli
 ```
 

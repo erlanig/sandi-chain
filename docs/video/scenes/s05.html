@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>05 Deteksi</title>
+<link rel="stylesheet" href="../film/fonts.css"><link rel="stylesheet" href="../film/film.css">
+<script src="../film/lib.js"></script>
+<style>
+  .head { left: 120px; top: 96px; font-size: 104px; white-space: nowrap; }
+  .head .n { color: var(--khaki); margin-right: 26px; }
+  .rules { left: 1236px; top: 212px; width: 564px; }
+  .rules .rh { display: flex; align-items: baseline; gap: 16px; margin-bottom: 26px; }
+  .rules .rh .big { font: 700 120px/0.8 var(--title); color: var(--khaki); }
+  .rules .rh .lb { font: 600 34px/1.1 var(--sans); }
+  .rules .ru { height: 74px; display: flex; align-items: center; gap: 18px; border-top: 1px solid var(--hair); font: 600 34px/1 var(--sans); white-space: nowrap; }
+  .rules .ru i { font: 500 28px/1 var(--mono); font-style: normal; color: var(--dim); width: 40px; }
+  .rules .ru.hit { color: var(--ink); }
+  .rules .ru.hit i { color: var(--khaki); }
+  .tx { font: 500 28px/1 var(--mono); color: var(--gold-hi); white-space: nowrap; }
+</style></head><body><script>
+F.boot(5, (st, F) => {
+  const { el, words, reveal, show, prog, E, lerp, blink, S, FR, clamp, css } = F;
+  const SC = F.scene, D = SC.duration, ph = (id) => SC.sentences.find((s) => s.id === id).phr;
+  const P13 = ph('S13'), P14 = ph('S14'), P15 = ph('S15');
+  const head = el('div', 'abs title head', st, '<span class="n">02</span><span class="w"></span>');
+  const headW = words(head.querySelector('.w'), 'Deteksi'), headN = head.querySelector('.n');
+
+  // panel peringatan dari adegan 4 -> jendela tangkapan UI
+  const W0 = { x: 170, y: 300, w: 760, h: 360 }, WF = { x: 120, y: 210, w: 1680, h: 690 }, WL = { x: 120, y: 210, w: 1060, h: 690 };
+  let W = { ...WF };
+  const win = el('div', 'shot', st);
+  const old = el('div', 'abs', win, `<div class="mono" style="position:absolute;left:36px;top:34px;font-size:28px;letter-spacing:.14em;color:var(--dim)">UNIT PENGAMANAN</div>
+    <div style="position:absolute;left:30px;top:100px;width:700px;height:220px;border-radius:12px;background:rgba(217,56,47,.14);border:2px solid var(--red)"></div>`);
+  css(old, { inset: '0' });
+  const imgL = el('img', '', win); imgL.src = '../assets/ui/risk_list.png';
+  const imgO = el('img', '', win); imgO.src = '../assets/ui/risk_open.png';
+  const ring = el('div', 'ring', st);
+  const sim = el('div', '', st, 'DATA SIMULASI'); sim.id = 'simlabel';
+
+  // tujuh aturan (nama persis dari backend/src/forensics/behavior.ts), urut sesuai narasi
+  const rules = el('div', 'abs rules', st);
+  const rh = el('div', 'rh', rules, '<span class="big">7</span><span class="lb">aturan yang<br>bisa dijelaskan</span>');
+  const NAMES = ['Penolakan beruntun', 'Menyisir banyak dokumen', 'Membuka dokumen massal', 'Di luar jam dinas', 'Membuka dokumen berulang', 'Salinan tidak cocok', 'Penolakan berulang'];
+  const HIT = [true, true, false, true, false, false, false]; // sinyal serka.budi
+  const ru = NAMES.map((n, i) => el('div', 'ru', rules, `<i>${String(i + 1).padStart(2, '0')}</i>${n}`));
+  const tRule = [P14[1], P14[2], P14[3], P14[4], P14[5], P14[5] + 5 * FR, P14[5] + 10 * FR];
+  const txl = el('div', 'abs tx', st, '→ ledger · tx ' + (F.rects.risk_chip_href || '').split('=')[1]?.slice(0, 16) + '…');
+
+  const R = F.rects;
+  // kamera di dalam jendela: pusat (cx, cy) dalam koordinat CSS tangkapan, skala s
+  const cam = (img, v) => css(img, { width: 1920 * v.s + 'px', left: W.w / 2 - v.cx * v.s + 'px', top: W.h / 2 - v.cy * v.s + 'px' });
+  const mix = (a, b, k) => ({ cx: lerp(a.cx, b.cx, k), cy: lerp(a.cy, b.cy, k), s: lerp(a.s, b.s, k) });
+  const V0 = { cx: 960, cy: 525, s: 1.25 }, V1 = { cx: 960, cy: 535, s: 1.29 }, V2 = { cx: 720, cy: 640, s: 1.4 }, V3 = { cx: 640, cy: 650, s: 1.9 };
+  const toScreen = (v, x, y) => ({ x: W.x + W.w / 2 + (x - v.cx) * v.s, y: W.y + W.h / 2 + (y - v.cy) * v.s });
+  const tOpen = P14[0] + 0.6, tZoom = P15[0] + 0.3;
+  const chip = R.risk_chip;
+  F.cue('tick', tOpen);
+
+  return (t) => {
+    // morph jendela
+    const m = E.ioc(prog(t, 0.05, 0.75)), sh = E.ioc(prog(t, P14[0] - 0.1, 0.8));
+    W = { x: WF.x, y: WF.y, w: lerp(WF.w, WL.w, sh), h: WF.h };
+    css(win, { left: lerp(W0.x, W.x, m) + 'px', top: lerp(W0.y, W.y, m) + 'px', width: lerp(W0.w, W.w, m) + 'px', height: lerp(W0.h, W.h, m) + 'px' });
+    old.style.opacity = 1 - prog(t, 0.05, 0.3);
+    imgL.style.opacity = prog(t, 0.35, 0.45);
+    show(headN, t, P13[0] - 0.05, { dur: 0.4, dy: 14 }); reveal(headW, t, P13[0] + 0.1, { dy: 30, dur: 0.5 });
+    show(sim, t, 0.8, { dur: 0.4 });
+    // kamera: dolly lambat lalu ke chip bukti
+    let v = mix(V0, V1, E.lin(prog(t, 0.8, P14[0] - 0.8)));
+    v = mix(v, V2, sh);
+    v = mix(v, V3, E.ioc(prog(t, tZoom, 1.6)));
+    cam(imgL, v); cam(imgO, v);
+    // baris serka.budi terbuka: wipe dari bawah baris ke bawah
+    const ok = E.ioc(prog(t, tOpen, 0.6));
+    const rowBottom = (R.risk_row_budi.y + R.risk_row_budi.h - v.cy) * v.s + W.h / 2;
+    imgO.style.clipPath = `inset(0 0 ${Math.max(0, W.h - rowBottom - ok * (W.h))}px 0)`;
+    imgO.style.clipPath = `inset(0 0 ${(1 - ok) * 100}% 0)`;
+    imgO.style.opacity = t >= tOpen ? 1 : 0;
+    // cincin: skor -> chip bukti
+    let rr = null;
+    if (t >= P13[3] && t < tOpen) {
+      const a = toScreen(v, 1285, R.risk_row_budi.y + 6), b = toScreen(v, 1620, R.risk_row_andi.y + R.risk_row_andi.h - 6);
+      rr = { x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y, k: prog(t, P13[3], 0.35) * (1 - prog(t, tOpen - 0.3, 0.3)) };
+    } else if (t >= P15[1]) {
+      const a = toScreen(v, chip.x - 8, chip.y - 7), b = toScreen(v, chip.x + chip.w + 8, chip.y + chip.h + 7);
+      rr = { x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y, k: E.spring(prog(t, P15[1], 0.45)) };
+    }
+    if (rr) {
+      const g = 1 + (1 - Math.min(1, rr.k)) * 0.25;
+      css(ring, { left: rr.x - (g - 1) * rr.w / 2 + 'px', top: rr.y - (g - 1) * rr.h / 2 + 'px', width: rr.w * g + 'px', height: rr.h * g + 'px', opacity: clamp(rr.k * 2) });
+    } else ring.style.opacity = 0;
+    show(txl, t, P15[2], { dur: 0.45, dx: -12 });
+    css(txl, { left: (rr ? rr.x : 0) + 'px', top: (rr ? rr.y + rr.h + 18 : 0) + 'px' });
+    // kolom aturan
+    show(rh, t, P14[0] + 0.5, { dur: 0.5, dy: 14 });
+    ru.forEach((r, i) => {
+      show(r, t, tRule[i], { dur: 0.4, dx: 16 });
+      r.style.color = t > tZoom ? (HIT[i] ? 'var(--ink)' : 'rgba(236,235,224,.6)') : 'var(--ink)';
+      r.classList.toggle('hit', HIT[i] && t > tZoom);
+    });
+  };
+});
+</script></body></html>

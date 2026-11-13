@@ -1,0 +1,51 @@
+:root {
+  --bg: #0d170f; --layer: #161b14; --layer2: #1d2419;
+  --ink: #ecebe0; --dim: rgba(236, 235, 224, 0.6); --hair: rgba(236, 235, 224, 0.12); --hair2: rgba(236, 235, 224, 0.22);
+  --paper: #f3f4f0; --paper-ink: #1b2016;
+  --khaki: #a9b665; --olive: #46562a;
+  --red: #d9382f; --red-logo: #e04a3f;
+  --gold: #d4a72c; --gold-hi: #f1cf6a;
+  --k-biasa: #74b57f; --k-terbatas: #6fa8dc; --k-rahasia: #e29245; --k-sr: #e8605a;
+  --title: 'Barlow Condensed', sans-serif; --sans: 'Plus Jakarta Sans', sans-serif; --mono: 'IBM Plex Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+#stage {
+  position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden;
+  background: var(--bg); color: var(--ink); font-family: var(--sans);
+  transform-origin: 0 0; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision;
+}
+.abs { position: absolute; }
+.title { font-family: var(--title); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; line-height: 0.95; }
+.mono { font-family: var(--mono); }
+.dim { color: var(--dim); }
+
+/* teks kata demi kata: mask-slide naik 12 px */
+.wm { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.wm > span { display: inline-block; }
+
+/* subtitel */
+#sub {
+  position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%);
+  max-width: 1080px; padding: 6px 24px 8px; border-radius: 12px;
+  background: rgba(10, 16, 11, 0.86); color: var(--ink);
+  font: 500 38px/1.2 var(--sans); text-align: center; text-wrap: balance; white-space: pre-line;
+}
+#sub:empty { display: none; }
+#simlabel {
+  position: absolute; left: 120px; bottom: 80px; font: 500 28px/1 var(--mono); letter-spacing: 0.08em;
+  color: var(--gold-hi); padding: 10px 14px; border: 1px solid rgba(212, 167, 44, 0.55); border-radius: 8px; background: rgba(10, 16, 11, 0.86);
+}
+
+/* benda: cap karet bergaris ganda */
+.stamp {
+  position: absolute; font-family: var(--title); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--red); border: 6px solid var(--red); outline: 2px solid var(--red); outline-offset: 5px;
+  border-radius: 6px; padding: 6px 22px 4px; line-height: 1; white-space: nowrap; transform-origin: 50% 50%;
+}
+.panel { position: absolute; background: var(--layer); border: 1px solid var(--hair); border-radius: 16px; }
+.shot { position: absolute; border-radius: 16px; overflow: hidden; box-shadow: 0 40px 90px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--hair); background: #0f130e; }
+.shot img { position: absolute; left: 0; top: 0; display: block; }
+.ring { position: absolute; border: 4px solid var(--gold-hi); border-radius: 12px; box-shadow: 0 0 0 9999px rgba(5, 9, 6, 0.0); pointer-events: none; }
+.chip { display: inline-flex; align-items: center; gap: 12px; padding: 12px 22px; border-radius: 999px; border: 1px solid var(--hair2); font: 600 34px/1 var(--sans); background: var(--layer); }
+svg { overflow: visible; }

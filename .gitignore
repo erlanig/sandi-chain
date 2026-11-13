@@ -19,3 +19,6 @@ install-fabric.sh
 
 # chaincode vendor (dibuat saat deployCC)
 chaincode/**/vendor/
+
+# hasil render video demo (besar, dibuat ulang dari docs/video)
+docs/video/out/

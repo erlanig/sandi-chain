@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>10 Penutup</title>
+<link rel="stylesheet" href="../film/fonts.css"><link rel="stylesheet" href="../film/film.css">
+<script src="../film/lib.js"></script>
+<style>
+  .w { position: absolute; font: 700 168px/1 var(--title); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; transform-origin: 0 0; }
+  .num { position: absolute; font: 700 64px/1 var(--title); color: var(--gold); white-space: nowrap; }
+  .logo { left: 810px; top: 150px; width: 300px; height: 125px; }
+  .brand { left: 0; width: 1920px; top: 302px; text-align: center; font: 700 52px/1 var(--title); letter-spacing: .16em; padding-left: .16em; color: var(--dim); }
+  .team { left: 0; width: 1920px; top: 376px; text-align: center; font-size: 140px; }
+  .names { left: 0; width: 1920px; top: 552px; text-align: center; font: 600 44px/1 var(--sans); white-space: nowrap; }
+  .names b { color: var(--gold); font-weight: 600; margin: 0 22px; }
+  .ctx { left: 0; width: 1920px; top: 834px; text-align: center; font: 500 28px/1 var(--mono); color: var(--dim); letter-spacing: .12em; }
+  .black { position: absolute; inset: 0; background: #000; z-index: 20; }
+  .rule { position: absolute; height: 2px; background: var(--hair2); }
+</style></head><body><script>
+F.boot(10, (st, F) => {
+  const { el, svg, words, reveal, show, draw, prog, E, lerp, FR, clamp, css } = F;
+  const SC = F.scene, D = SC.duration, at = (id) => SC.sentences.find((s) => s.id === id).rel;
+  const P25 = SC.sentences.find((s) => s.id === 'S25').phr;
+  const W = ['Cegah', 'Deteksi', 'Telusuri', 'Buktikan'], T = [at('S24a'), at('S24b'), at('S24c'), at('S24d')];
+  // posisi besar (tumpuk) -> baris kecil di kartu penutup
+  const BIG = W.map((_, i) => ({ x: 700, y: 112 + i * 188, s: 1 }));
+  const rowW = [0, 0, 0, 0];
+  const words4 = W.map((w, i) => el('div', 'w', st, w));
+  const nums = W.map((_, i) => el('div', 'num', st, String(i + 1).padStart(2, '0')));
+  const L = svg('svg', { viewBox: '0 0 240 100', class: 'abs logo' }, st);
+  L.innerHTML = `<mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="100"><rect width="240" height="100" fill="#fff"/>
+    <g fill="#000" stroke="#000" stroke-width="5"><path d="M120 20 126.8 40.7 148.5 40.7 130.9 53.6 137.6 74.3 120 61.5 102.4 74.3 109.1 53.6 91.5 40.7 113.2 40.7Z"/><path d="M99.3 84 102.4 74.3 120 61.5 137.6 74.3 140.7 84V100H99.3Z"/></g>
+    <path fill="#000" d="M0 0H1.1L45.6 100H0ZM240 0H238.9L194.4 100H240Z"/></mask>
+    <g mask="url(#m)" fill="none" stroke-linejoin="round" stroke-width="13"><path stroke="#e04a3f" d="M4 22H70L86 38H154L170 22H236"/>
+    <path fill="#e04a3f" stroke="none" d="M106 33 112 13Q113.5 7 120 7H128Q131 7 132 10L133 13H139L142 21H133.5L137 33Z"/>
+    <path stroke="#ecebe0" d="M12 40H62L78 56H112M228 40H178L162 56H128"/><path stroke="#ecebe0" d="M20 58H54L70 74H110M220 58H186L170 74H130"/></g>
+    <path fill="none" stroke="#d4a72c" stroke-width="7" d="M103 87 120 72 137 87"/><path fill="#d4a72c" d="M108 98 120 87.5 132 98Z"/>`;
+  const brand = el('div', 'abs brand', st, 'SANDI-CHAIN');
+  const team = el('div', 'abs title team', st); const teamW = words(team, 'PASUKAN BIMA');
+  const names = el('div', 'abs names', st, 'Luthfi Fauzi<b>·</b>Fadhail A. Bima Dharmawan<b>·</b>Erlan Irhab Ghalib');
+  const ctx = el('div', 'abs ctx', st, 'KARTIKA CYBER HACKATHON 2026');
+  const rule = el('div', 'rule', st); css(rule, { left: '660px', width: '600px', top: '646px' });
+  const black = el('div', 'black', st);
+  const tCard = T[3] + 1.25;
+  T.forEach((x) => F.cue('stamp_soft', x));
+
+  return (t) => {
+    // ukur lebar sekali (font sudah dimuat sebelum seek pertama)
+    if (!rowW[0]) words4.forEach((w, i) => (rowW[i] = w.offsetWidth));
+    const ck = E.ioc(prog(t, tCard, 0.9));
+    // baris kecil: skala 0.3, dipusatkan dengan jarak 56 px
+    const sc = 0.3, gap = 56;
+    const tot = rowW.reduce((a, w) => a + w * sc, 0) + gap * 3;
+    let x = 960 - tot / 2;
+    words4.forEach((w, i) => {
+      const k = E.spring(prog(t, T[i] - 0.06, 0.45));
+      const small = { x, y: 698, s: sc }; x += rowW[i] * sc + gap;
+      const big = BIG[i];
+      const px = lerp(big.x, small.x, ck), py = lerp(big.y, small.y, ck), s = lerp(big.s, small.s, ck);
+      w.style.transform = `translate(${px}px, ${py - (1 - k) * 16}px) scale(${s})`;
+      w.style.opacity = clamp(prog(t, T[i] - 0.06, 0.12));
+      w.style.color = ck > 0.5 ? 'var(--khaki)' : 'var(--ink)';
+      const n = nums[i];
+      n.style.transform = `translate(${560}px, ${big.y + 58}px)`;
+      n.style.opacity = clamp(prog(t, 0.3 + i * 5 * FR, 0.3)) * (t < T[i] - 0.1 ? 0.45 : 1) * (1 - prog(t, tCard - 0.1, 0.3));
+    });
+    show(L, t, tCard + 0.3, { dur: 0.6, scale: 0.08, ease: E.spring });
+    show(brand, t, tCard + 0.5, { dur: 0.5, dy: 12 });
+    reveal(teamW, t, P25[0], { dy: 40, dur: 0.6 });
+    show(names, t, P25[0] + 0.9, { dur: 0.6, dy: 14 });
+    rule.style.transform = `scaleX(${E.oc(prog(t, P25[0] + 1.4, 0.7))})`;
+    show(ctx, t, P25[1] + 0.4, { dur: 0.5 });
+    black.style.opacity = E.ioc(prog(t, D - 1.0, 1.0));
+  };
+});
+</script></body></html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>09 Bukti</title>
+<link rel="stylesheet" href="../film/fonts.css"><link rel="stylesheet" href="../film/film.css">
+<script src="../film/lib.js"></script>
+<style>
+  .tile { position: absolute; border: 2px solid var(--khaki); border-radius: 22px; background: var(--layer); overflow: hidden; }
+  .tile .in { position: absolute; left: 44px; top: 50px; right: 40px; }
+  .tile .num { font: 700 220px/0.8 var(--title); color: var(--ink); letter-spacing: .01em; }
+  .tile .lab { margin-top: 58px; font: 600 38px/1.2 var(--sans); }
+  .tile .src { margin-top: 18px; font: 500 28px/1 var(--mono); color: var(--dim); white-space: nowrap; }
+  .tile .run { position: absolute; left: 44px; right: 44px; bottom: 40px; height: 2px; background: var(--hair); overflow: hidden; }
+  .tile .run i { position: absolute; top: 0; width: 120px; height: 2px; background: var(--khaki); }
+  .meta { position: absolute; left: 0; width: 1920px; text-align: center; top: 150px; font: 500 28px/1 var(--mono); color: var(--dim); letter-spacing: .12em; }
+</style></head><body><script>
+F.boot(9, (st, F) => {
+  const { el, words, reveal, show, prog, E, lerp, count, FR, clamp, css } = F;
+  const SC = F.scene, P = SC.sentences[0].phr, fa = F.facts;
+  const meta = el('div', 'meta', st, 'DIUKUR ULANG SAAT RENDER · 13 NOVEMBER 2026');
+  const T = [
+    { v: fa.backendTests.value, lab: 'tes backend lulus', src: 'npm test', x: 120, at: P[1] + 0.2 },
+    { v: fa.chaincodeTests.value, lab: 'tes chaincode lulus', src: 'go test ./...', x: 700, at: P[1] + 1.1 },
+    { v: fa.ciJobs.value, lab: 'pipeline CI hijau', src: 'gh pr checks 2', x: 1280, at: P[2] + 0.1, of: 3 },
+  ];
+  // dari tiga chip adegan 8 menjadi tiga ubin
+  const C0 = [290, 750, 1210];
+  T.forEach((d, i) => {
+    d.el = el('div', 'tile', st, `<div class="in"><div class="num">0</div><div class="lab">${d.lab}</div><div class="src">${d.src}</div></div><div class="run"><i></i></div>`);
+    d.num = d.el.querySelector('.num'); d.inn = d.el.querySelector('.in'); d.run = d.el.querySelector('.run i');
+    F.cue('tick', d.at + 0.9);
+  });
+  return (t) => {
+    show(meta, t, 0.9, { dur: 0.45, dy: 10 });
+    T.forEach((d, i) => {
+      const k = E.ioc(prog(t, 0.0 + i * 4 * FR, 0.8));
+      css(d.el, { left: lerp(C0[i], d.x, k) + 'px', top: lerp(770, 260, k) + 'px', width: lerp(420, 520, k) + 'px', height: lerp(72, 460, k) + 'px', borderRadius: lerp(36, 22, k) + 'px' });
+      d.el.style.opacity = 1 - E.ioc(prog(t, SC.duration - 0.6, 0.55));
+      d.inn.style.opacity = prog(t, 0.95 + i * 5 * FR, 0.4) * (1 - prog(t, SC.duration - 0.9, 0.5));
+      d.num.style.opacity = prog(t, d.at - 0.05, 0.15);
+      const v = Math.round(d.v * E.oc(prog(t, d.at, 0.9)));
+      d.num.textContent = d.of ? `${v}/${d.of}` : String(v);
+      // garis tipis berjalan setelah angka diam
+      const r = t - (d.at + 1.4);
+      d.run.style.left = r > 0 ? ((r * 160) % 560) - 120 + 'px' : '-200px';
+    });
+  };
+});
+</script></body></html>

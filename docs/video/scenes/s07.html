@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>07 Buktikan</title>
+<link rel="stylesheet" href="../film/fonts.css"><link rel="stylesheet" href="../film/film.css">
+<script src="../film/lib.js"></script>
+<style>
+  .head { left: 120px; top: 96px; font-size: 104px; white-space: nowrap; }
+  .head .n { color: var(--khaki); margin-right: 26px; }
+  .blk { position: absolute; width: 372px; height: 340px; border-radius: 16px; background: var(--layer); border: 2px solid var(--hair2); padding: 26px 26px; }
+  .blk .no { font: 500 28px/1 var(--mono); color: var(--dim); letter-spacing: .1em; }
+  .blk .isi { margin-top: 26px; font: 600 34px/1.2 var(--sans); height: 100px; }
+  .blk .isi .who { transition: none; }
+  .blk .hl { margin-top: 22px; font: 500 28px/1 var(--mono); color: var(--dim); }
+  .blk .hv { margin-top: 10px; font: 500 34px/1 var(--mono); color: var(--khaki); }
+  .blk.bad { border-color: var(--red); }
+  .blk.bad .hv { color: #e8605a; }
+  .lnk { position: absolute; height: 4px; background: var(--hair2); }
+  .cmp { position: absolute; left: 120px; width: 1680px; }
+  .cmp .lab { font: 600 34px/1 var(--sans); margin-bottom: 16px; display: flex; gap: 18px; align-items: baseline; }
+  .cmp .lab i { font: 500 28px/1 var(--mono); font-style: normal; color: var(--dim); }
+  .cmp .hx { font: 500 40px/1 var(--mono); letter-spacing: .01em; white-space: nowrap; }
+  .cmp .hx span.d { color: var(--gold-hi); background: rgba(212,167,44,.18); border-radius: 4px; }
+  .verdict { position: absolute; left: 120px; font: 700 64px/1 var(--title); letter-spacing: .04em; color: var(--gold-hi); text-transform: uppercase; white-space: nowrap; }
+</style></head><body><script>
+F.boot(7, (st, F) => {
+  const { el, words, reveal, show, prog, E, lerp, blink, FR, clamp, css } = F;
+  const SC = F.scene, ph = (id) => SC.sentences.find((s) => s.id === id).phr;
+  const P19 = ph('S19'), P20 = ph('S20');
+  const C = F.facts.chain, fa = F.facts;
+  const head = el('div', 'abs title head', st, '<span class="n">04</span><span class="w"></span>');
+  const headW = words(head.querySelector('.w'), 'Buktikan'), headN = head.querySelector('.n');
+
+  // rantai empat blok: hash_i = sha256(hash_{i-1} + isi_i), nilai asli dari tools/facts.py
+  const X = [120, 556, 992, 1428], Y = 290;
+  const labels = ['DIBUAT · R/001/XI/2026', 'DISPOSISI → <span class="who">kapten.andi</span>', 'DIBUKA · kapten.andi', 'DITOLAK · serka.budi'];
+  const lnks = [0, 1, 2].map((i) => { const l = el('div', 'lnk', st); css(l, { left: X[i] + 372 + 'px', top: Y + 170 + 'px', width: '64px' }); return l; });
+  const blks = C.blocks.map((b, i) => {
+    const e = el('div', 'blk', st, `<div class="no">BLOK ${i + 1}</div><div class="isi">${labels[i]}</div><div class="hl">hash</div><div class="hv"></div>`);
+    css(e, { left: X[i] + 'px', top: Y + 'px' });
+    e.hv = e.querySelector('.hv');
+    return e;
+  });
+  const who = blks[1].querySelector('.who');
+  const ghost = el('div', 'abs', st); css(ghost, { width: '372px', height: '340px', border: '1.5px dashed var(--hair2)', borderRadius: '16px', left: X[1] + 'px', top: Y + 'px' });
+  const note = el('div', 'abs', st); css(note, { left: '120px', top: '700px', font: '600 34px/1.3 var(--sans)', whiteSpace: 'nowrap' });
+  const noteW = words(note, 'Isi blok 2 diubah: tiga hash setelahnya ikut berubah.');
+
+  // perbandingan hash berkas asli dan salinan 1 bit
+  const A = fa.docSha256.value, B = fa.copySha256.value;
+  const hx = (h, o) => [...h].map((c, i) => (c !== o[i] ? `<span class="d">${c}</span>` : c)).join('');
+  const cmp = el('div', 'cmp', st, `
+    <div class="lab">Berkas asli <i>R-001-XI-2026.txt</i></div><div class="hx a">${A}</div>
+    <div style="height:46px"></div>
+    <div class="lab">Salinan, 1 bit dibalik <i>byte ke-200: "${fa.copySha256.char[0]}" → "${fa.copySha256.char[1]}"</i></div><div class="hx b">${hx(B, A)}</div>`);
+  css(cmp, { top: '300px' });
+  const hxA = cmp.querySelector('.hx.a'), hxB = cmp.querySelector('.hx.b');
+  const diffs = [...hxB.querySelectorAll('.d')];
+  const nDiff = diffs.length;
+  const verdict = el('div', 'verdict', st, `${nDiff} dari 64 karakter berbeda`); css(verdict, { top: '650px' });
+  const chainOut = P20[0] - 0.1;
+  const vline = el('div', 'abs', st); css(vline, { left: '120px', top: '736px', width: '680px', height: '4px', background: 'var(--khaki)', transformOrigin: '0 50%' });
+  const ring = el('div', 'ring', st);
+  const tTamper = P19[4] - 0.2; // "bahkan oleh administrator"
+  F.cue('lock', 0.95); [0, 1, 2, 3].forEach((i) => F.cue('tick', 0.55 + i * 0.18));
+  [1, 2, 3].forEach((i) => F.cue('alert1', tTamper + 1.0 + (i - 1) * 0.45));
+
+  return (t) => {
+    { const k = E.ioc(prog(t, 0.05, 0.6)); css(ring, { left: lerp(544, X[0] - 6, k) + 'px', top: lerp(712, Y - 6, k) + 'px', width: lerp(1170, 384, k) + 'px', height: lerp(106, 352, k) + 'px', opacity: 1 - prog(t, 0.55, 0.3) }); }
+    show(headN, t, P19[0] - 0.05, { dur: 0.4, dy: 14 }); reveal(headW, t, P19[0] + 0.1, { dy: 30, dur: 0.5 });
+    // blok masuk dari kanan lalu mengunci
+    blks.forEach((b, i) => {
+      const t0 = 0.3 + i * 5 * FR + (P19[2] - 0.3 > 0 ? 0 : 0);
+      const k = prog(t, t0, 0.55), s = E.spring(k);
+      const snap = t > t0 + 0.55 && t < t0 + 0.55 + 2 * FR ? 2 : 0;
+      const outk = E.ioc(prog(t, chainOut, 0.6));
+      b.style.transform = `translate(${(1 - s) * 260 + snap}px, ${-outk * 60}px)`;
+      b.style.opacity = clamp(k * 3) * (1 - outk);
+      // hash asli -> hash setelah diubah (blok 2..4 satu per satu)
+      const bad = i >= 1 && t >= tTamper + 1.0 + (i - 1) * 0.45;
+      const h = bad ? C.tamperedHashes[i] : C.hashes[i];
+      b.hv.textContent = h.slice(0, 12) + '…';
+      b.classList.toggle('bad', bad);
+    });
+    lnks.forEach((l, i) => {
+      const k = E.oc(prog(t, 0.95 + i * 4 * FR, 0.3));
+      const broken = t >= tTamper + 1.0 + i * 0.45;
+      css(l, { transform: `scaleX(${k})`, transformOrigin: '0 50%', background: broken ? 'var(--red)' : 'var(--khaki)', opacity: 1 - E.ioc(prog(t, chainOut, 0.6)) });
+    });
+    // percobaan mengubah isi blok 2, huruf demi huruf
+    const FROM = 'kapten.andi', TO = 'serka.budi';
+    const n = Math.floor(clamp((t - tTamper) / (2 * FR), 0, 99));
+    let s = ''; for (let j = 0; j < Math.max(FROM.length, TO.length); j++) s += j < n ? (TO[j] ?? '') : (FROM[j] ?? '');
+    who.textContent = s; who.style.color = t >= tTamper ? '#e8605a' : '';
+    const lift = E.ioc(prog(t, tTamper - 0.35, 0.3));
+    blks[1].style.transform += ` translateY(${-lift * 16}px)`;
+    ghost.style.opacity = t > tTamper - 0.35 ? 0.8 * (1 - E.ioc(prog(t, chainOut, 0.6))) : 0;
+    reveal(noteW, t, tTamper + 2.3, { stagger: 3 * FR, out: chainOut - 0.3 });
+    // S20: dua hash penuh, karakter berbeda disorot emas
+    const ck = prog(t, P20[0], 0.01);
+    show(cmp, t, P20[0], { dur: 0.5, dy: 20 });
+    const typeA = Math.floor(clamp((t - P20[0] - 0.1) / 0.9) * 64), typeB = Math.floor(clamp((t - P20[0] - 0.6) / 0.9) * 64);
+    hxA.style.clipPath = `inset(0 ${100 - (typeA / 64) * 100}% 0 0)`;
+    hxB.style.clipPath = `inset(0 ${100 - (typeB / 64) * 100}% 0 0)`;
+    diffs.forEach((d, i) => { d.style.background = t > P20[1] - 0.2 + i * 0.012 ? 'rgba(212,167,44,.22)' : 'transparent'; d.style.color = t > P20[1] - 0.2 + i * 0.012 ? 'var(--gold-hi)' : 'inherit'; });
+    show(verdict, t, P20[1] + 0.6, { dur: 0.5, dy: 16 });
+    vline.style.transform = `scaleX(${E.oc(prog(t, SC.duration - 1.3, 0.6))})`;
+  };
+});
+</script></body></html>

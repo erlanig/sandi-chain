@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { DropdownMenu } from 'radix-ui';
-import { ChevronDown, CreditCard, FilePlus2, Files, LogOut, Menu, PenLine, ShieldCheck, Siren, type LucideIcon } from 'lucide-react';
+import { ChevronDown, CreditCard, FilePlus2, Files, LogOut, Menu, PenLine, ScanSearch, ShieldCheck, Siren, type LucideIcon } from 'lucide-react';
 import { klasLabel } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useAuth } from './auth';
@@ -28,7 +28,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
     { href: '/documents', label: 'Dokumen', icon: Files },
     { href: '/documents/new', label: 'Registrasi', icon: FilePlus2 },
     { href: '/verify', label: 'Verifikasi', icon: ShieldCheck },
-    ...(user.role === 'auditor' || user.role === 'admin' ? [{ href: '/security', label: 'Pengamanan', icon: Siren }] : []),
+    ...(user.role === 'auditor' || user.role === 'admin'
+      ? [
+          { href: '/security', label: 'Pengamanan', icon: Siren },
+          { href: '/forensics', label: 'Telusuri', icon: ScanSearch },
+        ]
+      : []),
   ];
   // "/documents/new" adalah menu sendiri; halaman dokumen lain termasuk "Dokumen".
   const active = (href: string) =>
