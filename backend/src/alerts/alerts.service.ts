@@ -8,7 +8,7 @@ import { AlertRow, DbService } from '../db/db.service';
 import { FabricService } from '../fabric/fabric.service';
 import { UsersService } from '../users/users.service';
 
-export type AlertType = 'UnauthorizedAccess' | 'DocumentTampered' | 'StorageIntegrity';
+export type AlertType = 'UnauthorizedAccess' | 'DocumentTampered' | 'StorageIntegrity' | 'SuspiciousBehavior';
 
 const ALERT_EVENTS: AlertType[] = ['UnauthorizedAccess', 'DocumentTampered'];
 const utf8 = new TextDecoder();
@@ -141,5 +141,5 @@ export class AlertsService implements OnApplicationBootstrap, OnModuleDestroy {
 }
 
 function severity(t: string) {
-  return t === 'UnauthorizedAccess' ? 'high' : 'critical';
+  return t === 'UnauthorizedAccess' || t === 'SuspiciousBehavior' ? 'high' : 'critical';
 }

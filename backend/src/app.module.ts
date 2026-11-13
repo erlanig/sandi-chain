@@ -10,6 +10,8 @@ import { DocumentsController, SecurityController } from './documents/documents.c
 import { DocumentsService } from './documents/documents.service';
 import { ReconcileService } from './documents/reconcile.service';
 import { FabricService } from './fabric/fabric.service';
+import { ForensicsController } from './forensics/forensics.controller';
+import { ForensicsService } from './forensics/forensics.service';
 import { SignBroker } from './signing/sign-broker';
 import { SignController } from './signing/sign.controller';
 import { StorageService } from './storage/storage.service';
@@ -38,7 +40,7 @@ class HealthController {
       },
     }),
   ],
-  controllers: [HealthController, AuthController, DocumentsController, SecurityController, SignController],
+  controllers: [HealthController, AuthController, DocumentsController, SecurityController, SignController, ForensicsController],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },
     UsersService,
@@ -51,6 +53,7 @@ class HealthController {
     AlertsService,
     DocumentsService,
     ReconcileService,
+    ForensicsService,
   ],
 })
 export class AppModule {}

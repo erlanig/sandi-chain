@@ -363,7 +363,7 @@ const dayKey = (s: string) => new Date(s).toLocaleDateString('id-ID', { dateStyl
 const clock = (s: string) => new Date(s).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
 
 /** Jejak akses sebagai linimasa vertikal: dikelompokkan per tanggal, tiap entri berupa simpul berikon. */
-export function AuditTimeline({ logs }: { logs: AuditLog[] }) {
+export function AuditTimeline({ logs, highlight }: { logs: AuditLog[]; highlight?: string }) {
   if (logs.length === 0) return <Empty icon={History}>Tidak ada entri untuk saringan ini.</Empty>;
 
   const groups: { day: string; items: AuditLog[] }[] = [];
@@ -391,7 +391,12 @@ export function AuditTimeline({ logs }: { logs: AuditLog[] }) {
                   <span className="relative z-[1] h-fit shrink-0 rounded-xl bg-panel ring-4 ring-panel">
                     <IconTile icon={st.icon} tone={st.tone} />
                   </span>
-                  <div className={cn('min-w-0 flex-1 rounded-xl border p-3.5', bad ? 'border-bad/25 bg-bad/[0.04]' : 'border-line')}>
+                  <div
+                    className={cn(
+                      'min-w-0 flex-1 rounded-xl border p-3.5',
+                      l.txId === highlight ? 'border-accent bg-accent/[0.06] ring-1 ring-accent' : bad ? 'border-bad/25 bg-bad/[0.04]' : 'border-line',
+                    )}
+                  >
                     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
                       <p className={cn('text-[14px] font-semibold', st.text)}>{ACTION_LABEL[l.action] ?? l.action}</p>
                       <time className="font-mono text-[12px] text-faint" dateTime={l.timestamp}>

@@ -49,7 +49,7 @@ export interface AuditLog {
 
 export interface Alert {
   id: number;
-  type: 'UnauthorizedAccess' | 'DocumentTampered' | 'StorageIntegrity';
+  type: 'UnauthorizedAccess' | 'DocumentTampered' | 'StorageIntegrity' | 'SuspiciousBehavior';
   doc_id: string;
   actor: string;
   org: string;
@@ -126,3 +126,84 @@ export const ACTION_LABEL: Record<string, string> = {
   DISPOSITION: 'Disposisi',
   REVOKE: 'Dicabut',
 };
+
+/* ------------------------------------------------------------------ forensik */
+
+export type RiskLevel = 'rendah' | 'sedang' | 'tinggi' | 'kritis';
+
+export interface RiskSignal {
+  rule: string;
+  label: string;
+  points: number;
+  count: number;
+  detail: string;
+  evidence: string[];
+  at: string;
+}
+
+export interface ActorRisk {
+  actor: string;
+  actorOrg: string;
+  jabatan: string;
+  score: number;
+  level: RiskLevel;
+  signals: RiskSignal[];
+  events: number;
+  lastActivity: string;
+}
+
+export interface RiskReport {
+  generatedAt: string;
+  options?: { workStartHour: number; workEndHour: number };
+  alertFrom: RiskLevel;
+  actors: ActorRisk[];
+}
+
+export interface TracePerson {
+  username: string;
+  nama: string;
+  nrp: string;
+  jabatan: string;
+  clearance: string;
+  mspId: string;
+}
+
+export interface TraceReader {
+  actor: string;
+  actorOrg: string;
+  jabatan: string;
+  opens: number;
+  last: string;
+}
+
+export interface TraceMatch {
+  access: AuditLog;
+  isAccessGrant: boolean;
+  person: TracePerson | null;
+  grantedBy: AuditLog | null;
+  custody: AuditLog[];
+  suspectActivity: AuditLog[];
+  otherReaders: TraceReader[];
+}
+
+export interface TraceDoc {
+  docId: string;
+  nomor: string;
+  perihal: string;
+  klasifikasi: Klasifikasi;
+  channel: string;
+  ownerName: string;
+  ownerOrg: string;
+  revoked: boolean;
+  version: number;
+}
+
+export interface TraceResult {
+  status: 'found' | 'ambiguous' | 'not_found' | 'bad_query';
+  message: string;
+  matches: TraceMatch[];
+  documents: Record<string, TraceDoc>;
+  /** Hanya untuk unggahan PDF: jejak yang dibaca dari metadata. */
+  source?: 'metadata';
+  extracted?: { txId?: string; docId?: string; nrp?: string };
+}
